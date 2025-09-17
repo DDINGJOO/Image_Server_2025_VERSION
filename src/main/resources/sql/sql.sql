@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS storage_objects (
 -- 6) image_status: 현재 이미지 상태 (ENUM 사용)
 CREATE TABLE IF NOT EXISTS image_status (
                                             image_id VARCHAR(128) PRIMARY KEY,
-                                            status ENUM('UPLOADED','PROCESSING','READY','DELETED','FAILED') NOT NULL DEFAULT 'UPLOADED',
+                                            status ENUM ('TEMP','CONFIRMED','READY','DELETED','FAILED') NOT NULL DEFAULT 'TEMP',
                                             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                             updated_by VARCHAR(128) DEFAULT NULL,
                                             CONSTRAINT fk_image_status_images FOREIGN KEY (image_id)
@@ -89,8 +89,8 @@ CREATE TABLE IF NOT EXISTS image_status (
 CREATE TABLE IF NOT EXISTS status_history (
                                               id INT AUTO_INCREMENT PRIMARY KEY,
                                               image_id VARCHAR(128) NOT NULL,
-                                              old_status ENUM('UPLOADED','PROCESSING','READY','DELETED','FAILED') DEFAULT NULL,
-                                              new_status ENUM('UPLOADED','PROCESSING','READY','DELETED','FAILED') NOT NULL,
+                                              old_status ENUM ('TEMP','CONFIRMED','READY','DELETED','FAILED') DEFAULT NULL,
+                                              new_status ENUM ('TEMP','CONFIRMED','READY','DELETED','FAILED') NOT NULL,
                                               updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                               updated_by VARCHAR(128) DEFAULT NULL,
                                               reason VARCHAR(1024) DEFAULT NULL,
