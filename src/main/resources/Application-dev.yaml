@@ -46,6 +46,10 @@ spring:
       mode: never
 
 
+images:
+  dir: /images/
+
+
 
 
 
