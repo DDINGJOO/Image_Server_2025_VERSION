@@ -1,0 +1,120 @@
+# docker-compose.yml — Compose 방식(비-Swarm)으로 다중 auth-server 인스턴스 정의
+version: "3.7"
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-image
+    ports:
+      - "9200:80"
+    volumes:
+      - ./nginx/conf:/etc/nginx/conf.d
+      - ./nginx/logs:/var/log/nginx
+
+    depends_on:
+      - image-server-1
+      - image-server-2
+      - image-server-3
+    networks:
+      - auth-network
+
+  mariadb:
+    container_name: mariadb-image
+    image: mariadb:latest
+    env_file:
+      - .env
+    ports:
+      - "4000:3306"
+    networks:
+      - image-network
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+
+
+  # auth-server 인스턴스들을 개별 서비스로 정의 (Compose는 deploy.replicas를 적용하지 않으므로 이렇게 복수 서비스로 표현)
+  image-server-1:
+    image: ddingsh9/auth-server:1.1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.prod
+    container_name: image-server-1
+    networks:
+      - auth-network
+    depends_on:
+      - mariadb
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  image-server-2:
+    image: ddingsh9/auth-server:1.1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.prod
+    container_name: image-server-2
+    networks:
+      - auth-network
+    depends_on:
+      - mariadb
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  image-server-3:
+    image: ddingsh9/auth-server:1.1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.prod
+    container_name: image-server-3
+    networks:
+      - auth-network
+    depends_on:
+      - mariadb
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  redis-image:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"   # 호스트에서 접근할 필요 없으면 제거 가능
+    networks:
+      - image-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+networks:
+  auth-network:
+    driver: bridge
+    name: auth-network
+
+volumes:
+  db-data:
+    driver: local
+    name: db-data
