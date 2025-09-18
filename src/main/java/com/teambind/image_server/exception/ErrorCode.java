@@ -1,7 +1,10 @@
 package com.teambind.image_server.exception;
 
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
+
+@Getter
 public enum ErrorCode {
     INVALID_REFERENCE("INVALID_REFERENCE", "Invalid Reference", HttpStatus.BAD_REQUEST),
     INVALID_EXTENSION("INVALID_EXTENSION", "Invalid Extension", HttpStatus.BAD_REQUEST),
