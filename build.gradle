@@ -32,6 +32,9 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    implementation "com.sksamuel.scrimage:scrimage-core:4.0.32"
+    implementation "com.sksamuel.scrimage:scrimage-webp:4.0.32"
 }
 
 tasks.named('test') {
