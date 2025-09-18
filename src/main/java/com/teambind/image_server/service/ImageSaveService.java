@@ -1,6 +1,7 @@
 package com.teambind.image_server.service;
 
 import com.teambind.image_server.entity.Image;
+import com.teambind.image_server.exception.CustomException;
 import com.teambind.image_server.util.convertor.ImageUtil;
 import com.teambind.image_server.util.store.LocalImageStorage;
 import com.teambind.image_server.util.validator.ExtensionValidator;
@@ -42,9 +43,8 @@ public class ImageSaveService {
             webpBytes = ImageUtil.toWebp(file, 0.8f);
             imageStorage.store(webpBytes, storedPath);
 
-        } catch (IOException e) {
-            //TODO
-            throw new IllegalArgumentException("Image processing error");
+        } catch (CustomException | IOException e) {
+            throw new RuntimeException(e);
         }
 
         Image image = Image.builder()

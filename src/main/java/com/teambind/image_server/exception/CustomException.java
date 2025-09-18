@@ -1,7 +1,17 @@
 package com.teambind.image_server.exception;
 
-public class CustomException extends RuntimeException {
-    public CustomException(String message) {
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class CustomException extends Exception {
+    private final ErrorCode errorcode;
+
+    public CustomException(ErrorCode errorcode) {
+
+        super(errorcode.toString());
+        this.errorcode = errorcode;
+    }
+
+    public HttpStatus getStatus() {
+        return errorcode.getStatus();
     }
 }

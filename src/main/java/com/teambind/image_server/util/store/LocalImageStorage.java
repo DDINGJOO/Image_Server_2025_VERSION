@@ -1,6 +1,8 @@
 package com.teambind.image_server.util.store;
 
 
+import com.teambind.image_server.exception.CustomException;
+import com.teambind.image_server.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -27,22 +29,21 @@ public class LocalImageStorage {
     }
 
 
-    public String store(MultipartFile file, String relativePath) {
+    public String store(MultipartFile file, String relativePath) throws CustomException {
         return storeBytes(getBytes(file), relativePath);
     }
 
 
-    public String store(byte[] imageBytes, String relativePath) {
+    public String store(byte[] imageBytes, String relativePath) throws CustomException {
         return storeBytes(imageBytes, relativePath);
     }
 
     // 바이트 배열을 저장하는 공통 로직
-    private String storeBytes(byte[] imageBytes, String relativePath) {
+    private String storeBytes(byte[] imageBytes, String relativePath) throws CustomException {
         // 1. 파일 이름에 경로 조작 문자가 있는지 확인합니다.
         if (relativePath.contains("..")) {
 
-            //TODO EXCEPTION IMPL
-            return null;
+            throw new CustomException(ErrorCode.INVALID_REFERENCE);
         }
 
         try {
@@ -60,9 +61,7 @@ public class LocalImageStorage {
             // 3. 최종 경로가 기본 디렉토리 내에 있는지 확인하여 경로 조작 공격을 방어합니다.
             if (!targetPath.startsWith(this.baseDir)) {
                 log.error("경로 검증 실패! targetPath가 baseDir의 하위 경로가 아닙니다.");
-
-                //TODO EXCEPTION IMPL
-                return null;
+                throw new CustomException(ErrorCode.INVALID_REFERENCE);
             }
 
             // 4. 디렉토리를 생성하고 파일을 저장합니다.
@@ -70,8 +69,8 @@ public class LocalImageStorage {
             Files.write(targetPath, imageBytes);
 
         } catch (IOException e) {
-            //TODO EXCEPTION IMPL
-            return null;
+            throw new CustomException(ErrorCode.IOException);
+
         }
         return relativePath;
     }
@@ -95,12 +94,11 @@ public class LocalImageStorage {
     }
 
 
-    private byte[] getBytes(MultipartFile file) {
+    private byte[] getBytes(MultipartFile file) throws CustomException {
         try {
             return file.getBytes();
         } catch (IOException e) {
-            //TODO EXCEPTION IMPL
-            return null;
+            throw new CustomException(ErrorCode.IOException);
         }
     }
 }
