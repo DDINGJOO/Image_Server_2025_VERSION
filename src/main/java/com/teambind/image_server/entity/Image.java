@@ -1,7 +1,7 @@
 package com.teambind.image_server.entity;
 
 
-import com.teambind.image_server.enums.ImageStatusEnum;
+import com.teambind.image_server.enums.ImageStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,7 +23,7 @@ public class Image {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ImageStatusEnum status;
+    private ImageStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reference_type_id")
@@ -31,6 +31,9 @@ public class Image {
 
     @Column(name = "image_url", nullable = false, length = 500)
     private String imageUrl;
+
+    @Column(name = "uploader_id")
+    private String uploaderId;
 
     @Column(name = "is_deleted", nullable = false)
     private boolean idDeleted;

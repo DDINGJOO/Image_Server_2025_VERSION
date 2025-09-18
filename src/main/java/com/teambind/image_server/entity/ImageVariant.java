@@ -25,7 +25,7 @@ public class ImageVariant {
     private String variantCode;
 
     @Column(name = "is_thumbnail", nullable = false)
-    private boolean thumbnail;
+    private boolean thumbnail = false;
 
     private String uploaderId;
     private LocalDateTime uploadedAt;

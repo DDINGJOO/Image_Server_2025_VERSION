@@ -1,7 +1,7 @@
 package com.teambind.image_server.entity;
 
 
-import com.teambind.image_server.enums.ImageStatusEnum;
+import com.teambind.image_server.enums.ImageStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,11 +25,11 @@ public class StatusHistory {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "old_status", nullable = false)
-    private ImageStatusEnum oldStatus;
+    private ImageStatus oldStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "new_status", nullable = false)
-    private ImageStatusEnum newStatus;
+    private ImageStatus newStatus;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;

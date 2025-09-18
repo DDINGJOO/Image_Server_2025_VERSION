@@ -1,5 +1,7 @@
 package com.teambind.image_server;
 
+import com.teambind.image_server.entity.Extension;
+import com.teambind.image_server.entity.ReferenceType;
 import com.teambind.image_server.repository.ExtensionRepository;
 import com.teambind.image_server.repository.ReferenceTypeRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +20,8 @@ import java.util.Map;
 
 public class ImageServerApplication implements ApplicationRunner {
 
-    public static final Map<String, Integer> extensionMap = new HashMap<>();
-    public static final Map<String, Integer> referenceTypeMap = new HashMap<>();
+    public static final Map<String, Extension> extensionMap = new HashMap<>();
+    public static final Map<String, ReferenceType> referenceTypeMap = new HashMap<>();
     private final ExtensionRepository extensionRepository;
     private final ReferenceTypeRepository referenceTypeRepository;
     public static void main(String[] args) {
@@ -29,12 +31,12 @@ public class ImageServerApplication implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         extensionRepository.findAll().forEach(extension -> {
-            extensionMap.put(extension.getCode(), extension.getId());
+            extensionMap.put(extension.getCode(), extension);
         });
         log.info("Loaded {} extensions", extensionMap.toString());
 
         referenceTypeRepository.findAll().forEach(referenceType -> {
-            referenceTypeMap.put(referenceType.getCode(), referenceType.getId());
+            referenceTypeMap.put(referenceType.getCode(), referenceType);
         });
         log.info("Loaded {} reference types", referenceTypeMap.toString());
 
