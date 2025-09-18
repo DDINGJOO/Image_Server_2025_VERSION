@@ -1,25 +1,23 @@
 package com.teambind.image_server.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "reference_types")
+@Table(name = "reference_types", uniqueConstraints = @UniqueConstraint(name = "uk_reference_type_code", columnNames = "code"))
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ReferenceType {
-
     @Id
-    int id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-    @Column(name = "code")
-    String code;
-    @Column(name = "name")
-    String name;
+    @Column(name = "code", nullable = false, length = 32)
+    private String code;
+
+    @Column(name = "name", nullable = false, length = 64)
+    private String name;
 }
