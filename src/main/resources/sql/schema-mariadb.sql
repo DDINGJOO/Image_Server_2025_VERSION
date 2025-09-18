@@ -130,3 +130,15 @@ CREATE TABLE image_sequence
   COLLATE = utf8mb4_unicode_ci;
 CREATE INDEX idx_image_sequence_image ON image_sequence (image_id);
 CREATE UNIQUE INDEX uk_image_sequence_img_seq ON image_sequence (image_id, seq_number);
+
+
+CREATE TABLE shedlock
+(
+    name       varchar(64)  NOT NULL,
+    lock_until timestamp(3) NOT NULL,
+    locked_at  timestamp(3) NOT NULL,
+    locked_by  varchar(255) NOT NULL,
+    PRIMARY KEY (name)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_0900_ai_ci;
