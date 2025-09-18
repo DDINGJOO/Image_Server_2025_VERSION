@@ -1,6 +1,7 @@
 package com.teambind.image_server;
 
 import com.teambind.image_server.repository.ExtensionRepository;
+import com.teambind.image_server.repository.ReferenceTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -18,7 +19,9 @@ import java.util.Map;
 public class ImageServerApplication implements ApplicationRunner {
 
     public static final Map<String, Integer> extensionMap = new HashMap<>();
+    public static final Map<String, Integer> referenceTypeMap = new HashMap<>();
     private final ExtensionRepository extensionRepository;
+    private final ReferenceTypeRepository referenceTypeRepository;
     public static void main(String[] args) {
         SpringApplication.run(ImageServerApplication.class, args);
     }
@@ -29,5 +32,11 @@ public class ImageServerApplication implements ApplicationRunner {
             extensionMap.put(extension.getCode(), extension.getId());
         });
         log.info("Loaded {} extensions", extensionMap.toString());
+
+        referenceTypeRepository.findAll().forEach(referenceType -> {
+            referenceTypeMap.put(referenceType.getCode(), referenceType.getId());
+        });
+        log.info("Loaded {} reference types", referenceTypeMap.toString());
+
     }
 }

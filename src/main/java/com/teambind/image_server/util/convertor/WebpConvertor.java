@@ -2,7 +2,7 @@ package com.teambind.image_server.util.convertor;
 
 import com.sksamuel.scrimage.ImmutableImage;
 import com.sksamuel.scrimage.webp.WebpWriter;
-import com.teambind.image_server.exception.ImageException;
+import com.teambind.image_server.exception.CustomException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -21,9 +21,10 @@ public class WebpConvertor {
                     .output(WebpWriter.DEFAULT, new File(PHOTO_DIR + fileName + ".webp")); // 손실 압축 설정, fileName.webp로 파일 생성
         } catch (Exception e) {
             //TODO
-            throw new ImageException(e.getMessage());
+            throw new CustomException(e.getMessage());
         }
     }
+
 
     public File convertToWebpWithLossless(String fileName, File originalFile) {
         try {
@@ -32,7 +33,7 @@ public class WebpConvertor {
                     .output(WebpWriter.DEFAULT.withLossless(), new File(PHOTO_DIR + fileName + ".webp")); // 무손실 압축 설정, fileName.webp로 파일 생성
         } catch (Exception e) {
             //TODO
-            throw new ImageException(e.getMessage());
+            throw new CustomException(e.getMessage());
         }
     }
 }
