@@ -47,9 +47,9 @@ spring:
 
 
 images:
-  dir: /images/
-
-base-url: http://localhost:8080/images/
+  upload:
+    dir: /nginx/images/uploads
+  base-url: http://localhost:80/images/
 
 
 

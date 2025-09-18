@@ -1,27 +1,18 @@
 package com.teambind.image_server.service;
 
-import dto.image.response.ImageUploadResponse;
-import eurm.ImageStatus;
-import eurm.ImageVisibility;
-import eurm.ResourceCategory;
-import exception.exceptions.customexceptions.ImageException;
-import image.entity.Image;
-import image.repository.ImageRepository;
-import image.service.imagestorege.impl.LocalImageStorage;
-import image.service.util.ImageUtil;
+
+import com.teambind.image_server.util.convertor.ImageUtil;
+import com.teambind.image_server.util.store.LocalImageStorage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import primaryIdProvider.Snowflake;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-import static exception.error_code.image.ImageErrorCode.IMAGE_PROCESSING_ERROR;
 
 
 @Service
