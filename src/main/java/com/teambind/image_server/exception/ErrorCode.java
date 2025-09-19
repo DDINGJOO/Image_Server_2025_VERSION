@@ -26,6 +26,7 @@ public enum ErrorCode {
     REFERENCE_TYPE_NOT_FOUND("REFERENCE_TYPE_NOT_FOUND", "Reference Type Not Found", HttpStatus.BAD_REQUEST),
     FILE_EXTENSION_NOT_FOUND("FILE_EXTENSION_NOT_FOUND", "File Extension Not Found", HttpStatus.BAD_REQUEST),
     IMAGE_SAVE_FAILED("IMAGE_SAVE_FAILED", "Image Save Failed", HttpStatus.INTERNAL_SERVER_ERROR),
+    IMAGE_ALREADY_CONFIRMED("IMAGE_ALREADY_CONFIRMED", "Image Already Confirmed", HttpStatus.BAD_REQUEST),
     ;
 
 
