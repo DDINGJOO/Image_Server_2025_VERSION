@@ -36,7 +36,6 @@ public class ImageSaveService {
     private final ExtensionParser extensionParser;
 
     public Image saveImage(MultipartFile file, String uploaderId, String category) throws CustomException {
-        //TODO : TEST getOriginFilename
         if (!extensionValidator.isValid(file.getOriginalFilename())) {
             throw new CustomException(ErrorCode.FILE_EXTENSION_NOT_FOUND);
         }

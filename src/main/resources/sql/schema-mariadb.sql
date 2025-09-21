@@ -42,6 +42,7 @@ CREATE TABLE images
     reference_type_id INT          NOT NULL,
     image_url         VARCHAR(500) NOT NULL,
     is_deleted        TINYINT(1)   NOT NULL,
+    uploader_id VARCHAR(255) NOT NULL,
     created_at        DATETIME     NULL,
     updated_at        DATETIME     NULL,
     CONSTRAINT fk_images_reference_type
