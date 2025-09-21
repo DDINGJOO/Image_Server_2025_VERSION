@@ -40,4 +40,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Mockito inline mock-maker가 ByteBuddy 에이전트를 동적으로 부착할 때 JDK 경고를 피하고, 향후 기본 비활성화에도 대비
+    jvmArgs '-XX:+EnableDynamicAgentLoading'
 }

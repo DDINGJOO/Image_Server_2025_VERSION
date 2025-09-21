@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -80,5 +79,27 @@ class ImageRepositoryDataJpaTest {
         Image found = imageRepository.findByIdAndUploaderIdAndReferenceType("img-2", "user-2", ref);
         assertThat(found).isNotNull();
         assertThat(found.getId()).isEqualTo("img-2");
+    }
+
+    @Test
+    @DisplayName("미매칭 조건으로 조회 시 null을 반환한다")
+    void findByUploaderAndRefType_notMatch_returnsNull() {
+        ReferenceType ref = referenceTypeRepository.findAll().stream()
+                .filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
+
+        Image image = Image.builder()
+                .id("img-3")
+                .status(ImageStatus.TEMP)
+                .referenceType(ref)
+                .imageUrl("http://local/images/z.webp")
+                .uploaderId("user-3")
+                .idDeleted(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+        imageRepository.save(image);
+
+        // uploaderId가 다르면 null
+        Image notFound = imageRepository.findByIdAndUploaderIdAndReferenceType("img-3", "another", ref);
+        assertThat(notFound).isNull();
     }
 }

@@ -38,7 +38,6 @@ public class ImageSaveService {
     public Image saveImage(MultipartFile file, String uploaderId, String category) throws CustomException {
         //TODO : TEST getOriginFilename
         if (!extensionValidator.isValid(file.getOriginalFilename())) {
-
             throw new CustomException(ErrorCode.FILE_EXTENSION_NOT_FOUND);
         }
         if (!referenceValidator.referenceValidate(category)) {
@@ -67,6 +66,7 @@ public class ImageSaveService {
 
         // 이미지 확정 시에 순서 및 기존 이미지 삭제 처리
         Image image = Image.builder()
+                .id(uuid)
                 .createdAt(LocalDateTime.now())
                 .idDeleted(false)
                 .status(ImageStatus.TEMP)
