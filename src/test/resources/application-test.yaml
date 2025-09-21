@@ -3,7 +3,7 @@ server:
 
 spring:
   kafka:
-    bootstrap-servers: ${KAFKA_URL}
+    bootstrap-servers: localhost:8292
     consumer:
       group-id: image-consumer-group
       auto-offset-reset: earliest
@@ -16,9 +16,9 @@ spring:
 
 
   datasource:
-    url: jdbc:mariadb://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?useSSL=false&serverTimezone=seoul
-    username: ${DATABASE_USER_NAME}
-    password: ${DATABASE_PASSWORD}
+    url: jdbc:mariadb://localhost:4000/images
+    username: root
+    password: pass123#
     driver-class-name: org.mariadb.jdbc.Driver
 
 
@@ -36,8 +36,8 @@ spring:
     redis:
       repositories:
         enabled: false
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      host: localhost
+      port: 63
 
 
 
@@ -48,7 +48,7 @@ spring:
 
 images:
   upload:
-    dir: /Users/ddingjoo/IdeaProjects/MSA-WORKSHOP/Image_Server/nginx/images/uploads
+    dir: /nginx/images/uploads
   base-url: http://localhost:80/images/
 
 

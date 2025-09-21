@@ -27,8 +27,9 @@ public class StorageObject {
     @Column(name = "origin_size", nullable = false)
     private long originSize;
 
+    // NULL 가능 컬럼이므로 래퍼 타입 사용
     @Column(name = "converted_size")
-    private long convertedSize;
+    private Long convertedSize;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "origin_format_id")
