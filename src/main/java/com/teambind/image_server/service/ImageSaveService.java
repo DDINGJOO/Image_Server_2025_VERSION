@@ -46,24 +46,52 @@ public class ImageSaveService {
     }
 
     private Image saveImage(MultipartFile file, String fileName, String uploaderId, String category) throws CustomException {
-
-
         String uuid = UUID.randomUUID().toString(); // ImageId
-        String webpFileName = uuid + ".webp";
         String datePath = LocalDateTime.now().toLocalDate().toString().replace("-", "/");
-        String storedPath = category.toUpperCase() + "/" + datePath + "/" + webpFileName;
 
-        byte[] webpBytes;
+        // 기본값들 준비
+        String originExtUpper = extensionParser.extensionParse(fileName).toUpperCase();
+        String originExtLower = originExtUpper.toLowerCase();
+
+        String storedPath; // 실제 저장 경로 (성공/폴백에 따라 달라짐)
+        byte[] savedBytes; // 실제로 저장된 바이트
+        String convertedFormatCode; // 저장된 파일의 포맷 코드
+
         try {
-            // WebP 변환
-            webpBytes = ImageUtil.toWebp(file, 0.8f);
+            // 1) WebP 변환 시도
+            byte[] webpBytes = ImageUtil.toWebp(file, 0.8f);
+            String webpFileName = uuid + ".webp";
+            storedPath = category.toUpperCase() + "/" + datePath + "/" + webpFileName;
             imageStorage.store(webpBytes, storedPath);
 
-        } catch (CustomException | IOException e) {
-            throw new CustomException(ErrorCode.IMAGE_SAVE_FAILED);
+            savedBytes = webpBytes;
+            convertedFormatCode = "WEBP";
+        } catch (Exception e) {
+            // 2) 예외 유형 판단: Rosetta/네이티브 로더 관련 문제라면 원본 그대로 저장 (운영 환경 안정성 우선)
+            String msg = e.getMessage() == null ? "" : e.getMessage();
+            boolean rosettaLike = msg.contains("rosetta error") || msg.contains("/lib64/ld-linux-x86-64.so.2");
+
+            if (rosettaLike) {
+                try {
+                    String fallbackName = uuid + "." + originExtLower;
+                    storedPath = category.toUpperCase() + "/" + datePath + "/" + fallbackName;
+                    byte[] originalBytes = file.getBytes();
+                    imageStorage.store(originalBytes, storedPath);
+
+                    savedBytes = originalBytes;
+                    convertedFormatCode = originExtUpper; // WebP가 아닌 원본 포맷으로 저장됨
+                } catch (IOException ioEx) {
+                    System.err.println("[IO_EXCEPTION_FALLBACK] cause=" + ioEx.getClass().getName() + ", message=" + ioEx.getMessage());
+                    throw new CustomException(ErrorCode.IOException);
+                }
+            } else {
+                // 손상된 이미지 등 일반적 변환 실패는 IMAGE_SAVE_FAILED로 매핑하여 기존 기대 동작 유지
+                System.err.println("[IMAGE_CONVERT_FAIL] cause=" + e.getClass().getName() + ", message=" + msg);
+                throw new CustomException(ErrorCode.IMAGE_SAVE_FAILED);
+            }
         }
 
-        // 이미지 확정 시에 순서 및 기존 이미지 삭제 처리
+        // 3) 엔티티 빌드 및 저장
         Image image = Image.builder()
                 .id(uuid)
                 .createdAt(LocalDateTime.now())
@@ -76,10 +104,10 @@ public class ImageSaveService {
 
         StorageObject storageObject = StorageObject.builder()
                 .image(image)
-                .convertedFormat(extensionMap.get("WEBP"))
-                .originFormat(extensionMap.get(extensionParser.extensionParse(fileName).toUpperCase()))
+                .convertedFormat(extensionMap.get(convertedFormatCode))
+                .originFormat(extensionMap.get(originExtUpper))
                 .originSize(file.getSize())
-                .convertedSize((long) webpBytes.length)
+                .convertedSize((long) savedBytes.length)
                 .storageLocation(storedPath)
                 .build();
 
@@ -88,15 +116,11 @@ public class ImageSaveService {
         return image;
     }
 
-
     public List<Image> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
-
         List<Image> images = new ArrayList<>();
         for (MultipartFile file : files) {
             images.add(saveImage(file, file.getOriginalFilename(), uploaderId, category));
         }
         return images;
     }
-
-
 }

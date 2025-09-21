@@ -10,26 +10,27 @@ services:
     volumes:
       - ./nginx/conf:/etc/nginx/conf.d
       - ./nginx/logs:/var/log/nginx
+      - images-data:/usr/share/nginx/images:ro
 
     depends_on:
       - image-server-1
       - image-server-2
       - image-server-3
     networks:
-      - auth-network
+      - image-network
 
   mariadb:
     container_name: mariadb-image
     image: mariadb:latest
     env_file:
-      - .env
-    ports:
-      - "4000:3306"
+      - .env.prod
+
     networks:
       - image-network
     volumes:
       - db-data:/var/lib/mysql
-      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./src/main/resources/sql/schema-mariadb.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./src/main/resources/sql/data-mariadb.sql:/docker-entrypoint-initdb.d/data.sql:ro
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 30s
@@ -40,7 +41,7 @@ services:
 
   # auth-server 인스턴스들을 개별 서비스로 정의 (Compose는 deploy.replicas를 적용하지 않으므로 이렇게 복수 서비스로 표현)
   image-server-1:
-    image: ddingsh9/auth-server:1.1
+    image: ddingsh9/image-server:1.6
     build:
       context: .
       dockerfile: Dockerfile
@@ -48,7 +49,9 @@ services:
       - .env.prod
     container_name: image-server-1
     networks:
-      - auth-network
+      - image-network
+    volumes:
+      - images-data:/uploads
     depends_on:
       - mariadb
 
@@ -59,7 +62,7 @@ services:
       retries: 3
 
   image-server-2:
-    image: ddingsh9/auth-server:1.1
+    image: ddingsh9/image-server:1.6
     build:
       context: .
       dockerfile: Dockerfile
@@ -67,7 +70,9 @@ services:
       - .env.prod
     container_name: image-server-2
     networks:
-      - auth-network
+      - image-network
+    volumes:
+      - images-data:/uploads
     depends_on:
       - mariadb
 
@@ -78,7 +83,7 @@ services:
       retries: 3
 
   image-server-3:
-    image: ddingsh9/auth-server:1.1
+    image: ddingsh9/image-server:1.6
     build:
       context: .
       dockerfile: Dockerfile
@@ -86,7 +91,9 @@ services:
       - .env.prod
     container_name: image-server-3
     networks:
-      - auth-network
+      - image-network
+    volumes:
+      - images-data:/uploads
     depends_on:
       - mariadb
 
@@ -97,7 +104,7 @@ services:
       retries: 3
   redis-image:
     image: redis:7-alpine
-    container_name: redis
+    container_name: redis-image
     ports:
       - "6379:6379"   # 호스트에서 접근할 필요 없으면 제거 가능
     networks:
@@ -110,11 +117,14 @@ services:
 
 
 networks:
-  auth-network:
+  image-network:
     driver: bridge
-    name: auth-network
+    name: image-network
 
 volumes:
   db-data:
     driver: local
     name: db-data
+  images-data:
+    driver: local
+    name: images-data

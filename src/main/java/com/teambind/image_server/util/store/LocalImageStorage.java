@@ -25,6 +25,26 @@ public class LocalImageStorage {
         log.info("application.yaml에서 전달된 image.upload.dir: {}", baseDirPath);
         this.baseDir = Paths.get(baseDirPath).toAbsolutePath().normalize();
         log.info("초기화된 최종 baseDir 절대 경로: {}", this.baseDir);
+
+        // 기본 디렉토리 존재 확인 및 생성, 권한 체크
+        try {
+            Files.createDirectories(this.baseDir);
+        } catch (IOException e) {
+            log.error("[이미지 저장소 초기화 실패] 디렉토리 생성 중 오류: path={}, message={}", this.baseDir, e.getMessage(), e);
+        }
+        try {
+            boolean exists = Files.exists(this.baseDir);
+            boolean isDir = Files.isDirectory(this.baseDir);
+            boolean readable = Files.isReadable(this.baseDir);
+            boolean writable = Files.isWritable(this.baseDir);
+            log.info("[이미지 저장소 상태] exists={}, isDirectory={}, readable={}, writable={} (path={})",
+                    exists, isDir, readable, writable, this.baseDir);
+            if (!writable) {
+                log.warn("[경고] 이미지 저장 경로에 쓰기 권한이 없습니다. 호스트 경로 권한(chmod/chown)과 Docker 볼륨 마운트 옵션을 확인하세요. path={}", this.baseDir);
+            }
+        } catch (Exception e) {
+            log.warn("[이미지 저장소 권한 확인 실패] path={}, message={}", this.baseDir, e.getMessage());
+        }
         log.info("========================================");
     }
 
@@ -42,7 +62,6 @@ public class LocalImageStorage {
     private String storeBytes(byte[] imageBytes, String relativePath) throws CustomException {
         // 1. 파일 이름에 경로 조작 문자가 있는지 확인합니다.
         if (relativePath.contains("..")) {
-
             throw new CustomException(ErrorCode.INVALID_REFERENCE);
         }
 
@@ -69,8 +88,9 @@ public class LocalImageStorage {
             Files.write(targetPath, imageBytes);
 
         } catch (IOException e) {
+            log.error("[이미지 저장 실패] targetPath={}, baseDir={}, message={}",
+                    this.baseDir.resolve(relativePath).normalize(), this.baseDir, e.getMessage(), e);
             throw new CustomException(ErrorCode.IOException);
-
         }
         return relativePath;
     }
@@ -98,6 +118,7 @@ public class LocalImageStorage {
         try {
             return file.getBytes();
         } catch (IOException e) {
+            log.error("[이미지 바이트 추출 실패] filename={}, message={}", file.getOriginalFilename(), e.getMessage(), e);
             throw new CustomException(ErrorCode.IOException);
         }
     }

@@ -12,21 +12,16 @@ spring:
     listener:
       ack-mode: record
 
-
-
-
   datasource:
-    url: jdbc:mariadb://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?useSSL=false&serverTimezone=seoul
+    url: jdbc:mariadb://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?useSSL=false&serverTimezone=UTC
     username: ${DATABASE_USER_NAME}
     password: ${DATABASE_PASSWORD}
     driver-class-name: org.mariadb.jdbc.Driver
 
-
   jpa:
-    show-sql: true
+    show-sql: false
     hibernate:
       ddl-auto: none
-
     properties:
       hibernate:
         format_sql: true
@@ -39,20 +34,11 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
 
-
-
   sql:
     init:
       mode: never
 
-
 images:
   upload:
-    dir: /Users/ddingjoo/IdeaProjects/MSA-WORKSHOP/Image_Server/nginx/images/uploads
-  base-url: http://localhost:80/images/
-
-
-
-
-
-
+    dir: /uploads
+  base-url: http://localhost:9200/images/
