@@ -7,19 +7,21 @@ import com.teambind.image_server.enums.ImageStatus;
 import com.teambind.image_server.exception.CustomException;
 import com.teambind.image_server.exception.ErrorCode;
 import com.teambind.image_server.repository.ImageRepository;
-import com.teambind.image_server.util.helper.SequenceHelper;
+import com.teambind.image_server.util.statuschanger.StatusChanger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import static com.teambind.image_server.ImageServerApplication.referenceTypeMap;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional
 public class ImageConfirmService {
     private final ImageRepository imageRepository;
-    private final SequenceHelper sequenceHelper;
+    private final StatusChanger statusChanger;
 
     public void confirmImage(String imageId) throws CustomException {
 
@@ -30,7 +32,7 @@ public class ImageConfirmService {
         Image image = imageRepository.findById(imageId).orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
         if (image.getStatus().equals(ImageStatus.CONFIRMED))
             throw new CustomException(ErrorCode.IMAGE_ALREADY_CONFIRMED);
-        image.setStatus(ImageStatus.CONFIRMED);
+        image = statusChanger.changeStatus(image, ImageStatus.CONFIRMED);
 
         if (image.getReferenceType().getName().equals("PROFILE")) {
             deleteOldProfileImg(imageId, image.getUploaderId(), referenceTypeMap.get("PROFILE"));
@@ -47,7 +49,7 @@ public class ImageConfirmService {
             return;
         }
 
-        oldProfile.setStatus(ImageStatus.DELETED);
+        oldProfile = statusChanger.changeStatus(oldProfile, ImageStatus.DELETED);
         imageRepository.save(oldProfile);
     }
 }

@@ -80,7 +80,7 @@ public class ImageSaveService {
                 .convertedFormat(extensionMap.get("WEBP"))
                 .originFormat(extensionMap.get(extensionParser.extensionParse(fileName).toUpperCase()))
                 .originSize(file.getSize())
-                .convertedSize(webpBytes.length)
+                .convertedSize((long) webpBytes.length)
                 .storageLocation(storedPath)
                 .build();
 

@@ -20,7 +20,7 @@ public class LocalImageStorage {
     private final Path baseDir;
 
     // 생성자를 통해 baseDir를 Path 객체로 초기화합니다.
-    public LocalImageStorage(@Value("${image.upload.dir}") String baseDirPath) {
+    public LocalImageStorage(@Value("${images.upload.dir}") String baseDirPath) {
         log.info("===== LocalImageStorage 생성자 호출됨 =====");
         log.info("application.yaml에서 전달된 image.upload.dir: {}", baseDirPath);
         this.baseDir = Paths.get(baseDirPath).toAbsolutePath().normalize();

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class UrlHelper {
 
-    @Value("${images.based-url}")
+    @Value("${images.base-url}")
     private String baseUrl;
 
     public String getUrl(String storedPath) {
