@@ -65,7 +65,7 @@ class ImageConfirmServiceSpringBootTest {
     @DisplayName("이미지를 CONFIRMED 상태로 변경한다 (PROFILE 이외의 레퍼런스)")
     void confirmImage_updatesStatus_nonProfile() throws Exception {
         ReferenceType ref = referenceTypeRepository.findAll().stream()
-                .filter(r -> r.getCode().equals("USER")).findFirst().orElseThrow();
+                .filter(r -> r.getCode().equals("POST")).findFirst().orElseThrow();
 
         Image image = Image.builder()
                 .id("img-confirm-1")

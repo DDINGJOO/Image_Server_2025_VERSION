@@ -31,3 +31,10 @@
 ## 이미지 저장/확정 프로세스
 
 ![프로세스.png](readMe_images/%ED%94%84%EB%A1%9C%EC%84%B8%EC%8A%A4.png)
+
+
+-----
+
+## TEST
+
+![Test.png](readMe_images/Test.png)

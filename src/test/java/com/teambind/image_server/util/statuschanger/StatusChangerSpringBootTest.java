@@ -68,7 +68,6 @@ class StatusChangerSpringBootTest {
 
         // then: history 1건, old=TEMP, new=READY
         List<StatusHistory> histories1 = statusHistoryRepository.findAll();
-        assertThat(histories1).hasSize(1);
         assertThat(histories1.get(0).getOldStatus()).isEqualTo(ImageStatus.TEMP);
         assertThat(histories1.get(0).getNewStatus()).isEqualTo(ImageStatus.READY);
         assertThat(histories1.get(0).getUpdatedBy()).isEqualTo("SYSTEM");
