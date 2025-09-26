@@ -22,16 +22,16 @@ public class ImageSaveController {
     private final ImageSaveService imageSaveService;
 
     @PostMapping
-    public ResponseEntity<String> saveImage(@RequestParam MultipartFile file, String uploaderId, String category) throws CustomException {
-        String imageId = imageSaveService.saveImage(file, uploaderId, category).getId();
-        return ResponseEntity.ok().body(imageId);
+    public ResponseEntity<String> saveImage(@RequestParam MultipartFile file, String referenceId, String uploaderId, String category) throws CustomException {
+        Image image = imageSaveService.saveImage(file, referenceId, uploaderId, category);
+        return ResponseEntity.ok().body(image.getId());
     }
 
     @PostMapping("/batch")
-    public ResponseEntity<List<String>> saveImage(@RequestParam List<MultipartFile> file, String uploaderId, String category) throws CustomException {
-        List<Image> imageId = imageSaveService.saveImages(file, uploaderId, category);
+    public ResponseEntity<List<String>> saveImage(@RequestParam List<MultipartFile> file, String referenceId, String uploaderId, String category) throws CustomException {
+        List<Image> image = imageSaveService.saveImages(file, referenceId, uploaderId, category);
         List<String> imageIds = new ArrayList<>();
-        for (Image img : imageId) {
+        for (Image img : image) {
             imageIds.add(img.getId());
         }
 

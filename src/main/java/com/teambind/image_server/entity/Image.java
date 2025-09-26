@@ -25,6 +25,9 @@ public class Image {
     @Column(nullable = false)
     private ImageStatus status;
 
+    @Column(name = "reference_id")
+    private String referenceId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reference_type_id")
     private ReferenceType referenceType;

@@ -40,6 +40,7 @@ CREATE TABLE images
     image_id          VARCHAR(255) PRIMARY KEY,
     status            VARCHAR(32)  NOT NULL,
     reference_type_id INT          NOT NULL,
+    reference__id varchar(200) not null,
     image_url         VARCHAR(500) NOT NULL,
     is_deleted        TINYINT(1)   NOT NULL,
     uploader_id VARCHAR(255) NOT NULL,
