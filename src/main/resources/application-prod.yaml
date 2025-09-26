@@ -57,4 +57,4 @@ spring:
 images:
   upload:
     dir: /uploads
-  base-url: http://localhost:9200/images/
+  base-url: ${BASE_URL}

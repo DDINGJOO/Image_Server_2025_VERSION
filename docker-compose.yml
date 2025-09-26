@@ -19,29 +19,14 @@ services:
     networks:
       - image-network
 
-  mariadb:
-    container_name: mariadb-image
-    image: mariadb:latest
-    env_file:
-      - .env.prod
 
-    networks:
-      - image-network
-    volumes:
-      - db-data:/var/lib/mysql
-      - ./src/main/resources/sql/schema-mariadb.sql:/docker-entrypoint-initdb.d/schema.sql:ro
-      - ./src/main/resources/sql/data-mariadb.sql:/docker-entrypoint-initdb.d/data.sql:ro
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+
 
 
 
   # auth-server 인스턴스들을 개별 서비스로 정의 (Compose는 deploy.replicas를 적용하지 않으므로 이렇게 복수 서비스로 표현)
   image-server-1:
-    image: ddingsh9/image-server:1.6
+    image: ddingsh9/image-server:1.8
     build:
       context: .
       dockerfile: Dockerfile
@@ -50,10 +35,9 @@ services:
     container_name: image-server-1
     networks:
       - image-network
+      - infra-network
     volumes:
       - images-data:/uploads
-    depends_on:
-      - mariadb
 
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
@@ -62,7 +46,7 @@ services:
       retries: 3
 
   image-server-2:
-    image: ddingsh9/image-server:1.6
+    image: ddingsh9/image-server:1.8
     build:
       context: .
       dockerfile: Dockerfile
@@ -71,10 +55,10 @@ services:
     container_name: image-server-2
     networks:
       - image-network
+      - infra-network
     volumes:
       - images-data:/uploads
-    depends_on:
-      - mariadb
+
 
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
@@ -83,7 +67,7 @@ services:
       retries: 3
 
   image-server-3:
-    image: ddingsh9/image-server:1.6
+    image: ddingsh9/image-server:1.8
     build:
       context: .
       dockerfile: Dockerfile
@@ -92,39 +76,24 @@ services:
     container_name: image-server-3
     networks:
       - image-network
+      - infra-network
     volumes:
       - images-data:/uploads
-    depends_on:
-      - mariadb
 
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-  redis-image:
-    image: redis:7-alpine
-    container_name: redis-image
-    ports:
-      - "6379:6379"   # 호스트에서 접근할 필요 없으면 제거 가능
-    networks:
-      - image-network
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
+
 
 
 networks:
   image-network:
     driver: bridge
     name: image-network
+  infra-network:
+    external: true
+    name: infra-network
 
 volumes:
-  db-data:
-    driver: local
-    name: db-data
+
   images-data:
     driver: local
     name: images-data
