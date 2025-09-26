@@ -94,7 +94,7 @@ class ImageSaveServiceSpringBootTest {
         assertThat(profile).isNotNull();
 
         // when
-        Image saved = saveService.saveImage(file, "user-100", "PROFILE");
+        Image saved = saveService.saveImage(file, "123", "user-100", "PROFILE");
 
         // then: DB 적재
         assertThat(saved.getId()).isNotBlank();
@@ -113,7 +113,7 @@ class ImageSaveServiceSpringBootTest {
     @DisplayName("실패: 지원하지 않는 확장자면 FILE_EXTENSION_NOT_FOUND")
     void saveImage_invalidExtension_throws() {
         MockMultipartFile file = new MockMultipartFile("file", "not-allowed.txt", "text/plain", new byte[]{1, 2, 3});
-        CustomException ex = assertThrows(CustomException.class, () -> saveService.saveImage(file, "u-1", "PROFILE"));
+        CustomException ex = assertThrows(CustomException.class, () -> saveService.saveImage(file, "123", "u-1", "PROFILE"));
         assertThat(ex.getStatus()).isEqualTo(ErrorCode.FILE_EXTENSION_NOT_FOUND.getStatus());
     }
 
@@ -122,7 +122,7 @@ class ImageSaveServiceSpringBootTest {
     void saveImage_invalidReference_throws() throws Exception {
         byte[] png = createPngBytes(30, 30, Color.BLACK);
         MockMultipartFile file = new MockMultipartFile("file", "ok.png", "image/png", png);
-        CustomException ex = assertThrows(CustomException.class, () -> saveService.saveImage(file, "u-1", "unknown"));
+        CustomException ex = assertThrows(CustomException.class, () -> saveService.saveImage(file, "123", "u-1", "unknown"));
         assertThat(ex.getStatus()).isEqualTo(ErrorCode.REFERENCE_TYPE_NOT_FOUND.getStatus());
     }
 
@@ -132,7 +132,7 @@ class ImageSaveServiceSpringBootTest {
         // Scrimage가 해석할 수 없는 바이트 전달
         byte[] bad = new byte[]{0, 1, 2, 3, 4, 5};
         MockMultipartFile file = new MockMultipartFile("file", "bad.png", "image/png", bad);
-        CustomException ex = assertThrows(CustomException.class, () -> saveService.saveImage(file, "u-1", "PROFILE"));
+        CustomException ex = assertThrows(CustomException.class, () -> saveService.saveImage(file, "123", "u-1", "PROFILE"));
         assertThat(ex.getStatus()).isEqualTo(ErrorCode.IMAGE_SAVE_FAILED.getStatus());
     }
 }

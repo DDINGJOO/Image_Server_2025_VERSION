@@ -35,17 +35,17 @@ public class ImageSaveService {
     private final LocalImageStorage imageStorage;
     private final ExtensionParser extensionParser;
 
-    public Image saveImage(MultipartFile file, String uploaderId, String category) throws CustomException {
+    public Image saveImage(MultipartFile file, String referenceId, String uploaderId, String category) throws CustomException {
         if (!extensionValidator.isValid(file.getOriginalFilename())) {
             throw new CustomException(ErrorCode.FILE_EXTENSION_NOT_FOUND);
         }
         if (!referenceValidator.referenceValidate(category)) {
             throw new CustomException(ErrorCode.REFERENCE_TYPE_NOT_FOUND);
         }
-        return saveImage(file, file.getOriginalFilename(), uploaderId, category);
+        return saveImage(file, referenceId, file.getOriginalFilename(), uploaderId, category);
     }
 
-    private Image saveImage(MultipartFile file, String fileName, String uploaderId, String category) throws CustomException {
+    private Image saveImage(MultipartFile file, String referenceId, String fileName, String uploaderId, String category) throws CustomException {
         String uuid = UUID.randomUUID().toString(); // ImageId
         String datePath = LocalDateTime.now().toLocalDate().toString().replace("-", "/");
 
@@ -95,6 +95,7 @@ public class ImageSaveService {
         Image image = Image.builder()
                 .id(uuid)
                 .createdAt(LocalDateTime.now())
+                .referenceId(referenceId)
                 .idDeleted(false)
                 .status(ImageStatus.TEMP)
                 .referenceType(referenceTypeMap.get(category.toUpperCase()))
@@ -116,10 +117,10 @@ public class ImageSaveService {
         return image;
     }
 
-    public List<Image> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
+    public List<Image> saveImages(List<MultipartFile> files, String referenceId, String uploaderId, String category) throws CustomException {
         List<Image> images = new ArrayList<>();
         for (MultipartFile file : files) {
-            images.add(saveImage(file, file.getOriginalFilename(), uploaderId, category));
+            images.add(saveImage(file, referenceId, file.getOriginalFilename(), uploaderId, category));
         }
         return images;
     }

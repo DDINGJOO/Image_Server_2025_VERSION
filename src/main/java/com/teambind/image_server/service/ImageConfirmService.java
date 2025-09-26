@@ -23,7 +23,7 @@ public class ImageConfirmService {
     private final ImageRepository imageRepository;
     private final StatusChanger statusChanger;
 
-    public void confirmImage(String imageId) throws CustomException {
+    public Image confirmImage(String imageId) throws CustomException {
 
         log.info("Confirming image with id: {}", imageId);
         if (imageId == null || imageId.isEmpty()) {
@@ -38,6 +38,7 @@ public class ImageConfirmService {
             deleteOldProfileImg(imageId, image.getUploaderId(), referenceTypeMap.get("PROFILE"));
         }
         imageRepository.save(image);
+        return image;
     }
 
     public void deleteOldProfileImg(String imageId, String uploaderId, ReferenceType referenceType) throws CustomException {

@@ -3,25 +3,39 @@ server:
 
 spring:
   kafka:
-    bootstrap-servers: ${KAFKA_URL}
+    bootstrap-servers: ${KAFKA_URL1},${KAFKA_URL2},${KAFKA_URL3}
+    producer:
+      retries: 3
+      batch-size: 16384
+      buffer-memory: 33554432
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
     consumer:
       group-id: image-consumer-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
     listener:
       ack-mode: record
 
+
+
+
+
   datasource:
-    url: jdbc:mariadb://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?useSSL=false&serverTimezone=UTC
+    url: jdbc:mariadb://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?useSSL=false&serverTimezone=seoul
     username: ${DATABASE_USER_NAME}
     password: ${DATABASE_PASSWORD}
     driver-class-name: org.mariadb.jdbc.Driver
 
+
   jpa:
-    show-sql: false
+    show-sql: true
     hibernate:
       ddl-auto: none
+
     properties:
       hibernate:
         format_sql: true
@@ -33,6 +47,8 @@ spring:
         enabled: false
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
+
+
 
   sql:
     init:
