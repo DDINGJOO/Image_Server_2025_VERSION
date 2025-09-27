@@ -35,7 +35,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'com.h2database:h2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:5.14.0'
     implementation "com.sksamuel.scrimage:scrimage-core:4.0.32"
     implementation "com.sksamuel.scrimage:scrimage-webp:4.0.32"
 }
