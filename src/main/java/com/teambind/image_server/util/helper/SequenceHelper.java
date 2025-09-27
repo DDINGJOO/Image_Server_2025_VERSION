@@ -12,5 +12,4 @@ public class SequenceHelper {
     private ImageRepository imageRepository;
 
 
-
 }
