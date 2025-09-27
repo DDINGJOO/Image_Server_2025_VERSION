@@ -94,11 +94,19 @@ class ImageSaveServiceSpringBootTest {
         assertThat(profile).isNotNull();
 
         // when
-        Image saved = saveService.saveImage(file, "123", "user-100", "PROFILE");
+        java.util.Map<String, String> result = saveService.saveImage(file, "123", "user-100", "PROFILE");
 
-        // then: DB 적재
-        assertThat(saved.getId()).isNotBlank();
-        Image found = imageRepository.findById(saved.getId()).orElseThrow();
+        // then: 응답 포맷 검증
+        assertThat(result).containsKeys("id", "url");
+        assertThat(result.get("id")).isEqualTo("ok.png");
+        assertThat(result.get("url")).isNotBlank();
+
+        // and: DB 적재
+        // 반환값에 UUID가 포함되지 않으므로 URL로 역조회하여 검증한다
+        Image found = imageRepository.findAll().stream()
+                .filter(img -> result.get("url").equals(img.getImageUrl()))
+                .findFirst()
+                .orElseThrow();
         assertThat(found.getStorageObject()).isNotNull();
         assertThat(found.getStorageObject().getConvertedSize()).isNotNull();
         assertThat(found.getReferenceType().getCode()).isEqualTo("PROFILE");
