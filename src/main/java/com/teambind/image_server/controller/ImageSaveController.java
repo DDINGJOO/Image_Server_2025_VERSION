@@ -1,8 +1,6 @@
 package com.teambind.image_server.controller;
 
 
-import com.teambind.image_server.entity.Image;
-import com.teambind.image_server.exception.CustomException;
 import com.teambind.image_server.service.ImageSaveService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -13,8 +11,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -23,19 +21,15 @@ public class ImageSaveController {
     private final ImageSaveService imageSaveService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> saveImage(@RequestParam("file") MultipartFile file, @RequestParam String referenceId, @RequestParam String uploaderId, @RequestParam String category) throws CustomException {
-        Image image = imageSaveService.saveImage(file, referenceId, uploaderId, category);
-        return ResponseEntity.ok().body(image.getId());
+    public ResponseEntity<Map<String, String>> saveImage(@RequestParam("file") MultipartFile file, @RequestParam String referenceId, @RequestParam String uploaderId, @RequestParam String category) {
+        Map<String, String> image = imageSaveService.saveImage(file, referenceId, uploaderId, category);
+        return ResponseEntity.ok().body(image);
     }
 
     @PostMapping(path = "/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<String>> saveImages(@RequestParam("files") List<MultipartFile> files, @RequestParam String referenceId, @RequestParam String uploaderId, @RequestParam String category) throws CustomException {
-        List<Image> image = imageSaveService.saveImages(files, referenceId, uploaderId, category);
-        List<String> imageIds = new ArrayList<>();
-        for (Image img : image) {
-            imageIds.add(img.getId());
-        }
+    public ResponseEntity<Map<String, String>> saveImages(@RequestParam("files") List<MultipartFile> files, @RequestParam String referenceId, @RequestParam String uploaderId, @RequestParam String category) {
+        Map<String, String> image = imageSaveService.saveImages(files, referenceId, uploaderId, category);
 
-        return ResponseEntity.ok().body(imageIds);
+        return ResponseEntity.ok().body(image);
     }
 }
