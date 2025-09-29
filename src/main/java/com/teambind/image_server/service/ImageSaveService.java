@@ -19,10 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 import static com.teambind.image_server.ImageServerApplication.extensionMap;
 import static com.teambind.image_server.ImageServerApplication.referenceTypeMap;
@@ -115,7 +112,7 @@ public class ImageSaveService {
 
         image.setStorageObject(storageObject);
         imageRepository.save(image);
-        return Map.of("id", image.getId(), "fileName", file.getOriginalFilename());
+        return Map.of("id", image.getId(), "fileName", Objects.requireNonNull(file.getOriginalFilename()));
     }
 
     public List<SequentialImageResponse> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
