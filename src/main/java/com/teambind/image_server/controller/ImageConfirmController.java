@@ -26,7 +26,8 @@ public class ImageConfirmController {
             Image image = imageConfirmService.confirmImage(imageId.getFirst(), referenceId);
             eventPublisher.imageChangeEvent(image);
         } else {
-            imageConfirmService.confirmImages(imageId, referenceId);
+            eventPublisher.imagesChangeEvent
+                    (imageConfirmService.confirmImages(imageId, referenceId));
 
         }
     }

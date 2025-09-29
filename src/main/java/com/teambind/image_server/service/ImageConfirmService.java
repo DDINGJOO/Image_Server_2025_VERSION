@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.teambind.image_server.ImageServerApplication.referenceTypeMap;
 
@@ -71,12 +74,23 @@ public class ImageConfirmService {
             imageRepository.save(image);
         }
 
-
+        // 나머지 이미지 확정 처리
         List<Image> confirmedImages = imageRepository.findAllByIdIn(imageId);
         for (Image image : confirmedImages) {
             statusChanger.changeStatus(image, ImageStatus.CONFIRMED);
         }
         imageRepository.saveAll(confirmedImages);
-        return confirmedImages;
+        Map<String, Image> confirmedMap = confirmedImages.stream()
+                .collect(Collectors.toMap(Image::getId, Function.identity()));
+
+        //imageId 의 id 순서랑 똑같은 Image리스트를 만들고 싶어
+        List<Image> orderedConfirmed = new ArrayList<>();
+        for (String id : imageId) {
+            Image img = confirmedMap.get(id);
+            if (img != null) {
+                orderedConfirmed.add(img);
+            }
+        }
+        return orderedConfirmed;
     }
 }
