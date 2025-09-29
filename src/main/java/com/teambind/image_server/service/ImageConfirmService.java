@@ -4,6 +4,7 @@ package com.teambind.image_server.service;
 import com.teambind.image_server.entity.Image;
 import com.teambind.image_server.entity.ReferenceType;
 import com.teambind.image_server.enums.ImageStatus;
+import com.teambind.image_server.event.events.SequentialImageChangeEvent;
 import com.teambind.image_server.exception.CustomException;
 import com.teambind.image_server.exception.ErrorCode;
 import com.teambind.image_server.repository.ImageRepository;
@@ -12,6 +13,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.teambind.image_server.ImageServerApplication.referenceTypeMap;
 
@@ -53,5 +60,37 @@ public class ImageConfirmService {
 
         oldProfile = statusChanger.changeStatus(oldProfile, ImageStatus.DELETED);
         imageRepository.save(oldProfile);
+    }
+
+
+    @Transactional
+    public List<Image> confirmImages(List<String> imageId, String referenceId) {
+        List<Image> images = imageRepository.findAllByReferenceId(referenceId);
+
+        List<SequentialImageChangeEvent> imageChangeEvents = new ArrayList<>();
+        // 기존 이미지 삭제 대기 처리
+        for (Image image : images) {
+            image = statusChanger.changeStatus(image, ImageStatus.DELETED);
+            imageRepository.save(image);
+        }
+
+        // 나머지 이미지 확정 처리
+        List<Image> confirmedImages = imageRepository.findAllByIdIn(imageId);
+        for (Image image : confirmedImages) {
+            statusChanger.changeStatus(image, ImageStatus.CONFIRMED);
+        }
+        imageRepository.saveAll(confirmedImages);
+        Map<String, Image> confirmedMap = confirmedImages.stream()
+                .collect(Collectors.toMap(Image::getId, Function.identity()));
+
+        //imageId 의 id 순서랑 똑같은 Image리스트를 만들고 싶어
+        List<Image> orderedConfirmed = new ArrayList<>();
+        for (String id : imageId) {
+            Image img = confirmedMap.get(id);
+            if (img != null) {
+                orderedConfirmed.add(img);
+            }
+        }
+        return orderedConfirmed;
     }
 }
