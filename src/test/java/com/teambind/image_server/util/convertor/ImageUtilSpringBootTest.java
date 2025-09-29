@@ -74,6 +74,7 @@ class ImageUtilSpringBootTest {
         assertThat(webp).isNotEqualTo(png);
     }
 
+
     @Test
     @DisplayName("PNG 이미지를 지정 크기의 WebP 썸네일로 변환한다")
     void toWebpThumbnail_convertsAndResizes() throws Exception {

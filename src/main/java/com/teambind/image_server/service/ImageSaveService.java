@@ -1,5 +1,6 @@
 package com.teambind.image_server.service;
 
+import com.teambind.image_server.dto.response.SequentialImageResponse;
 import com.teambind.image_server.entity.Image;
 import com.teambind.image_server.entity.StorageObject;
 import com.teambind.image_server.enums.ImageStatus;
@@ -18,7 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -114,14 +115,16 @@ public class ImageSaveService {
 
         image.setStorageObject(storageObject);
         imageRepository.save(image);
-        return Map.of("id", fileName, "url", image.getImageUrl());
+        return Map.of("id", image.getId(), "fileName", file.getOriginalFilename());
     }
 
-    public Map<String, String> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
-        Map<String, String> images = new HashMap<>();
+    public List<SequentialImageResponse> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
+        List<SequentialImageResponse> responses = new ArrayList<>();
         for (MultipartFile file : files) {
-            images.put(file.getOriginalFilename(), saveImage(file, file.getOriginalFilename(), uploaderId, category).get("url"));
+            responses.add(new SequentialImageResponse(file.getOriginalFilename(), saveImage(file, file.getOriginalFilename(), uploaderId, category).get("fileName")));
         }
-        return images;
+        return responses;
     }
+
+
 }
