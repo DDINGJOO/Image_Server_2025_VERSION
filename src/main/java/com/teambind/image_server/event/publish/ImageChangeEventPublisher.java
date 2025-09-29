@@ -20,7 +20,7 @@ public class ImageChangeEventPublisher {
     public void imageChangeEvent(Image image) {
         if (image == null) return;
         String topic = image.getReferenceType().getCode().toLowerCase() + "-image-changed";
-        ImageChangeEvent imageChangeEvent = new ImageChangeEvent(image.getReferenceId(), image.getImageUrl());
+        ImageChangeEvent imageChangeEvent = new ImageChangeEvent(image.getReferenceId(), image.getImageUrl(), image.getReferenceId());
         eventPublisher.publish(topic, imageChangeEvent);
     }
 
@@ -29,7 +29,7 @@ public class ImageChangeEventPublisher {
         String topic = image.getFirst().getReferenceType().getCode().toLowerCase() + "-image-changed";
         List<SequentialImageChangeEvent> imageChangeEvent = new ArrayList<>();
         for (Image i : image) {
-            new SequentialImageChangeEvent(i.getId(), i.getImageUrl());
+            new SequentialImageChangeEvent(i.getId(), i.getImageUrl(), i.getReferenceId());
         }
         eventPublisher.publish(topic, imageChangeEvent);
     }

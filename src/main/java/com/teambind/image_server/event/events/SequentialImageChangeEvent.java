@@ -9,4 +9,5 @@ import lombok.Data;
 public class SequentialImageChangeEvent {
     private String imageId;
     private String imageUrl;
+    private String referenceId;
 }

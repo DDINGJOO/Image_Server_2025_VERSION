@@ -8,5 +8,6 @@ import lombok.Data;
 @AllArgsConstructor
 public class ImageChangeEvent {
     private String referenceId;
+    private String imageId;
     private String imageUrl;
 }
