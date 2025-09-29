@@ -23,13 +23,14 @@ public class ImageConfirmService {
     private final ImageRepository imageRepository;
     private final StatusChanger statusChanger;
 
-    public Image confirmImage(String imageId) {
+    public Image confirmImage(String imageId, String referenceId) {
 
         log.info("Confirming image with id: {}", imageId);
         if (imageId == null || imageId.isEmpty()) {
             throw new CustomException(ErrorCode.IMAGE_NOT_FOUND);
         }
         Image image = imageRepository.findById(imageId).orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
+        image.setReferenceId(referenceId);
         if (image.getStatus().equals(ImageStatus.CONFIRMED))
             throw new CustomException(ErrorCode.IMAGE_ALREADY_CONFIRMED);
         image = statusChanger.changeStatus(image, ImageStatus.CONFIRMED);

@@ -79,7 +79,7 @@ class ImageConfirmServiceSpringBootTest {
         imageRepository.save(image);
 
         // when
-        confirmService.confirmImage("img-confirm-1");
+        confirmService.confirmImage("img-confirm-1", "12");
 
         // then
         Image updated = imageRepository.findById("img-confirm-1").orElseThrow();
@@ -103,7 +103,7 @@ class ImageConfirmServiceSpringBootTest {
                 .build();
         imageRepository.save(image);
 
-        confirmService.confirmImage("img-confirm-prof");
+        confirmService.confirmImage("img-confirm-prof", "12");
 
         Image updated = imageRepository.findById("img-confirm-prof").orElseThrow();
         // 현재 서비스 구현 로직을 그대로 검증: PROFILE은 deleteOldProfileImg에 의해 DELETED로 저장될 수 있음
@@ -127,20 +127,20 @@ class ImageConfirmServiceSpringBootTest {
                 .build();
         imageRepository.save(image);
 
-        assertThrows(CustomException.class, () -> confirmService.confirmImage("img-confirm-2"));
+        assertThrows(CustomException.class, () -> confirmService.confirmImage("img-confirm-2", "12"));
     }
 
     @Test
     @DisplayName("실패: null 이미지 ID면 IMAGE_NOT_FOUND 상태")
     void confirmImage_null_throws() {
-        CustomException ex = assertThrows(CustomException.class, () -> confirmService.confirmImage(null));
+        CustomException ex = assertThrows(CustomException.class, () -> confirmService.confirmImage(null, "12"));
         assertThat(ex.getStatus()).isEqualTo(ErrorCode.IMAGE_NOT_FOUND.getStatus());
     }
 
     @Test
     @DisplayName("실패: 존재하지 않는 이미지 ID면 IMAGE_NOT_FOUND 상태")
     void confirmImage_notFound_throws() {
-        CustomException ex = assertThrows(CustomException.class, () -> confirmService.confirmImage("not-exist"));
+        CustomException ex = assertThrows(CustomException.class, () -> confirmService.confirmImage("not-exist", "12"));
         assertThat(ex.getStatus()).isEqualTo(ErrorCode.IMAGE_NOT_FOUND.getStatus());
     }
 }

@@ -21,14 +21,18 @@ public class ImageSaveController {
     private final ImageSaveService imageSaveService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, String>> saveImage(@RequestParam("file") MultipartFile file, @RequestParam String referenceId, @RequestParam String uploaderId, @RequestParam String category) {
-        Map<String, String> image = imageSaveService.saveImage(file, referenceId, uploaderId, category);
+    public ResponseEntity<Map<String, String>> saveImage(@RequestParam("file") MultipartFile file,
+                                                         @RequestParam String uploaderId,
+                                                         @RequestParam String category) {
+        Map<String, String> image = imageSaveService.saveImage(file, uploaderId, category);
         return ResponseEntity.ok().body(image);
     }
 
     @PostMapping(path = "/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, String>> saveImages(@RequestParam("files") List<MultipartFile> files, @RequestParam String referenceId, @RequestParam String uploaderId, @RequestParam String category) {
-        Map<String, String> image = imageSaveService.saveImages(files, referenceId, uploaderId, category);
+    public ResponseEntity<Map<String, String>> saveImages(@RequestParam("files") List<MultipartFile> files,
+                                                          @RequestParam String uploaderId,
+                                                          @RequestParam String category) {
+        Map<String, String> image = imageSaveService.saveImages(files, uploaderId, category);
 
         return ResponseEntity.ok().body(image);
     }

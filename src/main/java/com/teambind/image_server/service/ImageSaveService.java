@@ -36,17 +36,17 @@ public class ImageSaveService {
     private final LocalImageStorage imageStorage;
     private final ExtensionParser extensionParser;
 
-    public Map<String, String> saveImage(MultipartFile file, String referenceId, String uploaderId, String category) throws CustomException {
+    public Map<String, String> saveImage(MultipartFile file, String uploaderId, String category) throws CustomException {
         if (!extensionValidator.isValid(file.getOriginalFilename())) {
             throw new CustomException(ErrorCode.FILE_EXTENSION_NOT_FOUND);
         }
         if (!referenceValidator.referenceValidate(category)) {
             throw new CustomException(ErrorCode.REFERENCE_TYPE_NOT_FOUND);
         }
-        return saveImage(file, referenceId, file.getOriginalFilename(), uploaderId, category);
+        return saveImage(file, file.getOriginalFilename(), uploaderId, category);
     }
 
-    private Map<String, String> saveImage(MultipartFile file, String referenceId, String fileName, String uploaderId, String category) throws CustomException {
+    private Map<String, String> saveImage(MultipartFile file, String fileName, String uploaderId, String category) throws CustomException {
         String uuid = UUID.randomUUID().toString(); // ImageId
         String datePath = LocalDateTime.now().toLocalDate().toString().replace("-", "/");
 
@@ -96,7 +96,6 @@ public class ImageSaveService {
         Image image = Image.builder()
                 .id(uuid)
                 .createdAt(LocalDateTime.now())
-                .referenceId(referenceId)
                 .idDeleted(false)
                 .status(ImageStatus.TEMP)
                 .referenceType(referenceTypeMap.get(category.toUpperCase()))
@@ -118,10 +117,10 @@ public class ImageSaveService {
         return Map.of("id", fileName, "url", image.getImageUrl());
     }
 
-    public Map<String, String> saveImages(List<MultipartFile> files, String referenceId, String uploaderId, String category) throws CustomException {
+    public Map<String, String> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
         Map<String, String> images = new HashMap<>();
         for (MultipartFile file : files) {
-            images.put(file.getOriginalFilename(), saveImage(file, referenceId, file.getOriginalFilename(), uploaderId, category).get("url"));
+            images.put(file.getOriginalFilename(), saveImage(file, file.getOriginalFilename(), uploaderId, category).get("url"));
         }
         return images;
     }

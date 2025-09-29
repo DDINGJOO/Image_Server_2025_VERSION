@@ -19,8 +19,8 @@ public class ImageConfirmController {
 
     //TODO CONVERT EVENT Handling
     @PatchMapping("/{imageId}/confirm")
-    public void confirmImage(@PathVariable(name = "imageId") String imageId) {
-        Image image = imageConfirmService.confirmImage(imageId);
+    public void confirmImage(@PathVariable(name = "imageId") String imageId, String referenceId) {
+        Image image = imageConfirmService.confirmImage(imageId, referenceId);
         eventPublisher.imageChangeEvent(image);
     }
 
