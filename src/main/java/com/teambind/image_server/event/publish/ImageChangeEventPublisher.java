@@ -20,7 +20,7 @@ public class ImageChangeEventPublisher {
     public void imageChangeEvent(Image image) {
         if (image == null) return;
         String topic = image.getReferenceType().getCode().toLowerCase() + "-image-changed";
-        ImageChangeEvent imageChangeEvent = new ImageChangeEvent(image.getReferenceId(), image.getImageUrl(), image.getReferenceId());
+        ImageChangeEvent imageChangeEvent = new ImageChangeEvent(image.getReferenceId(), image.getReferenceId(), image.getImageUrl());
         eventPublisher.publish(topic, imageChangeEvent);
     }
 
