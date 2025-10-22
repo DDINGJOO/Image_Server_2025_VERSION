@@ -1,12 +1,12 @@
 package com.teambind.image_server.service;
 
+import com.teambind.image_server.config.InitialSetup;
 import com.teambind.image_server.entity.Image;
 import com.teambind.image_server.entity.StorageObject;
 import com.teambind.image_server.enums.ImageStatus;
 import com.teambind.image_server.exception.CustomException;
 import com.teambind.image_server.exception.ErrorCode;
 import com.teambind.image_server.repository.ImageRepository;
-import com.teambind.image_server.util.InitialSetup;
 import com.teambind.image_server.util.convertor.ImageUtil;
 import com.teambind.image_server.util.helper.ExtensionParser;
 import com.teambind.image_server.util.helper.UrlHelper;

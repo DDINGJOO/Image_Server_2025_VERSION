@@ -1,7 +1,7 @@
 package com.teambind.image_server.util.validator;
 
 
-import com.teambind.image_server.util.InitialSetup;
+import com.teambind.image_server.config.InitialSetup;
 import org.springframework.stereotype.Component;
 
 
