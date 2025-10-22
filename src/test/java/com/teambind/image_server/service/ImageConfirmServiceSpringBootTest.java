@@ -32,115 +32,114 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @SpringBootTest
 @ActiveProfiles("test")
 class ImageConfirmServiceSpringBootTest {
-
-    @TempDir
-    static Path tempDir;
-
-    @DynamicPropertySource
-    static void props(DynamicPropertyRegistry r) {
-        // 파일 시스템 접근을 안전한 임시 디렉터리로 고정
-        r.add("images.upload.dir", () -> tempDir.toAbsolutePath().toString());
-    }
-
-    @Autowired
-    private ImageConfirmService confirmService;
-    @Autowired
-    private ImageRepository imageRepository;
-    @Autowired
-    private ReferenceTypeRepository referenceTypeRepository;
-
-    @BeforeEach
-    void beforeEach() {
-        // 각 테스트 시작 전 이미지 테이블 정리
-        imageRepository.deleteAll();
-    }
-
-    @AfterEach
-    void afterEach() {
-        // 각 테스트 종료 후 이미지 테이블 정리
-        imageRepository.deleteAll();
-    }
-
-    @Test
-    @DisplayName("이미지를 CONFIRMED 상태로 변경한다 (PROFILE 이외의 레퍼런스)")
-    void confirmImage_updatesStatus_nonProfile() throws Exception {
-        ReferenceType ref = referenceTypeRepository.findAll().stream()
-                .filter(r -> r.getCode().equals("POST")).findFirst().orElseThrow();
-
-        Image image = Image.builder()
-                .id("img-confirm-1")
-                .status(ImageStatus.TEMP)
-                .referenceType(ref)
-                .imageUrl("http://local/images/a.webp")
-                .uploaderId("u-1")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        imageRepository.save(image);
-
-        // when
-        confirmService.confirmImage("img-confirm-1", "12");
-
-        // then
-        Image updated = imageRepository.findById("img-confirm-1").orElseThrow();
-        assertThat(updated.getStatus()).isEqualTo(ImageStatus.CONFIRMED);
-    }
-
-    @Test
-    @DisplayName("PROFILE 레퍼런스는 현재 구현상 deleteOldProfileImg 호출로 최종적으로 DELETED가 될 수 있다")
-    void confirmImage_profile_mayBecomeDeleted() throws Exception {
-        ReferenceType ref = referenceTypeRepository.findAll().stream()
-                .filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
-
-        Image image = Image.builder()
-                .id("img-confirm-prof")
-                .status(ImageStatus.TEMP)
-                .referenceType(ref)
-                .imageUrl("http://local/images/p.webp")
-                .uploaderId("u-2")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        imageRepository.save(image);
-
-        confirmService.confirmImage("img-confirm-prof", "12");
-
-        Image updated = imageRepository.findById("img-confirm-prof").orElseThrow();
-        // 현재 서비스 구현 로직을 그대로 검증: PROFILE은 deleteOldProfileImg에 의해 DELETED로 저장될 수 있음
-        assertThat(updated.getStatus()).isIn(ImageStatus.CONFIRMED, ImageStatus.DELETED);
-    }
-
-    @Test
-    @DisplayName("이미 CONFIRMED 상태면 예외를 던진다")
-    void confirmImage_alreadyConfirmed_throws() throws Exception {
-        ReferenceType ref = referenceTypeRepository.findAll().stream()
-                .filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
-
-        Image image = Image.builder()
-                .id("img-confirm-2")
-                .status(ImageStatus.CONFIRMED)
-                .referenceType(ref)
-                .imageUrl("http://local/images/b.webp")
-                .uploaderId("u-1")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        imageRepository.save(image);
-
-        assertThrows(CustomException.class, () -> confirmService.confirmImage("img-confirm-2", "12"));
-    }
-
-    @Test
-    @DisplayName("실패: null 이미지 ID면 IMAGE_NOT_FOUND 상태")
-    void confirmImage_null_throws() {
-        CustomException ex = assertThrows(CustomException.class, () -> confirmService.confirmImage(null, "12"));
-        assertThat(ex.getStatus()).isEqualTo(ErrorCode.IMAGE_NOT_FOUND.getStatus());
-    }
-
-    @Test
-    @DisplayName("실패: 존재하지 않는 이미지 ID면 IMAGE_NOT_FOUND 상태")
-    void confirmImage_notFound_throws() {
-        CustomException ex = assertThrows(CustomException.class, () -> confirmService.confirmImage("not-exist", "12"));
-        assertThat(ex.getStatus()).isEqualTo(ErrorCode.IMAGE_NOT_FOUND.getStatus());
-    }
+	
+	@TempDir
+	static Path tempDir;
+	@Autowired
+	private ImageConfirmService confirmService;
+	@Autowired
+	private ImageRepository imageRepository;
+	@Autowired
+	private ReferenceTypeRepository referenceTypeRepository;
+	
+	@DynamicPropertySource
+	static void props(DynamicPropertyRegistry r) {
+		// 파일 시스템 접근을 안전한 임시 디렉터리로 고정
+		r.add("images.upload.dir", () -> tempDir.toAbsolutePath().toString());
+	}
+	
+	@BeforeEach
+	void beforeEach() {
+		// 각 테스트 시작 전 이미지 테이블 정리
+		imageRepository.deleteAll();
+	}
+	
+	@AfterEach
+	void afterEach() {
+		// 각 테스트 종료 후 이미지 테이블 정리
+		imageRepository.deleteAll();
+	}
+	
+	@Test
+	@DisplayName("이미지를 CONFIRMED 상태로 변경한다 (PROFILE 이외의 레퍼런스)")
+	void confirmImage_updatesStatus_nonProfile() throws Exception {
+		ReferenceType ref = referenceTypeRepository.findAll().stream()
+				.filter(r -> r.getCode().equals("POST")).findFirst().orElseThrow();
+		
+		Image image = Image.builder()
+				.id("img-confirm-1")
+				.status(ImageStatus.TEMP)
+				.referenceType(ref)
+				.imageUrl("http://local/images/a.webp")
+				.uploaderId("u-1")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now())
+				.build();
+		imageRepository.save(image);
+		
+		// when
+		confirmService.confirmImage("img-confirm-1", "12");
+		
+		// then
+		Image updated = imageRepository.findById("img-confirm-1").orElseThrow();
+		assertThat(updated.getStatus()).isEqualTo(ImageStatus.CONFIRMED);
+	}
+	
+	@Test
+	@DisplayName("PROFILE 레퍼런스는 현재 구현상 deleteOldProfileImg 호출로 최종적으로 DELETED가 될 수 있다")
+	void confirmImage_profile_mayBecomeDeleted() throws Exception {
+		ReferenceType ref = referenceTypeRepository.findAll().stream()
+				.filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
+		
+		Image image = Image.builder()
+				.id("img-confirm-prof")
+				.status(ImageStatus.TEMP)
+				.referenceType(ref)
+				.imageUrl("http://local/images/p.webp")
+				.uploaderId("u-2")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now())
+				.build();
+		imageRepository.save(image);
+		
+		confirmService.confirmImage("img-confirm-prof", "12");
+		
+		Image updated = imageRepository.findById("img-confirm-prof").orElseThrow();
+		// 현재 서비스 구현 로직을 그대로 검증: PROFILE은 deleteOldProfileImg에 의해 DELETED로 저장될 수 있음
+		assertThat(updated.getStatus()).isIn(ImageStatus.CONFIRMED, ImageStatus.DELETED);
+	}
+	
+	@Test
+	@DisplayName("이미 CONFIRMED 상태면 예외를 던진다")
+	void confirmImage_alreadyConfirmed_throws() throws Exception {
+		ReferenceType ref = referenceTypeRepository.findAll().stream()
+				.filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
+		
+		Image image = Image.builder()
+				.id("img-confirm-2")
+				.status(ImageStatus.CONFIRMED)
+				.referenceType(ref)
+				.imageUrl("http://local/images/b.webp")
+				.uploaderId("u-1")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now())
+				.build();
+		imageRepository.save(image);
+		
+		assertThrows(CustomException.class, () -> confirmService.confirmImage("img-confirm-2", "12"));
+	}
+	
+	@Test
+	@DisplayName("실패: null 이미지 ID면 IMAGE_NOT_FOUND 상태")
+	void confirmImage_null_throws() {
+		CustomException ex = assertThrows(CustomException.class, () -> confirmService.confirmImage(null, "12"));
+		assertThat(ex.getStatus()).isEqualTo(ErrorCode.IMAGE_NOT_FOUND.getStatus());
+	}
+	
+	@Test
+	@DisplayName("실패: 존재하지 않는 이미지 ID면 IMAGE_NOT_FOUND 상태")
+	void confirmImage_notFound_throws() {
+		CustomException ex = assertThrows(CustomException.class, () -> confirmService.confirmImage("not-exist", "12"));
+		assertThat(ex.getStatus()).isEqualTo(ErrorCode.IMAGE_NOT_FOUND.getStatus());
+	}
 }

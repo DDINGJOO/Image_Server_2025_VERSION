@@ -12,14 +12,11 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class Extension {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "extension_id")
-    private Integer id;
-
-    @Column(name = "code", nullable = false, length = 16)
-    private String code;
-
-    @Column(name = "name", nullable = false, length = 64)
-    private String name;
+	
+	@Id
+	@Column(name = "code", nullable = false, length = 16)
+	private String code;
+	
+	@Column(name = "name", nullable = false, length = 64)
+	private String name;
 }

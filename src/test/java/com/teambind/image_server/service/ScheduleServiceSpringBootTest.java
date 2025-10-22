@@ -24,82 +24,82 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 class ScheduleServiceSpringBootTest {
-
-    @TempDir
-    static Path tempDir;
-    @Autowired
-    private ScheduleService scheduleService;
-    @Autowired
-    private ImageRepository imageRepository;
-    @Autowired
-    private ReferenceTypeRepository referenceTypeRepository;
-    private ReferenceType refProfile;
-
-    @DynamicPropertySource
-    static void props(DynamicPropertyRegistry r) {
-        r.add("images.upload.dir", () -> tempDir.toAbsolutePath().toString());
-    }
-
-    @BeforeEach
-    void setUp() {
-        imageRepository.deleteAll();
-        refProfile = referenceTypeRepository.findAll().stream()
-                .filter(r -> r.getCode().equals("PROFILE"))
-                .findFirst().orElseThrow();
-    }
-
-    @AfterEach
-    void tearDown() {
-        imageRepository.deleteAll();
-    }
-
-    @Test
-    @DisplayName("cleanUpUnusedImages: CONFIRMED 제외, 2일 초과된 이미지만 삭제")
-    void cleanUpUnusedImages_deletesOnlyOldAndUnconfirmed() {
-        // given
-        Image oldTemp = Image.builder()
-                .id("img-old-temp")
-                .status(ImageStatus.TEMP)
-                .referenceType(refProfile)
-                .referenceId("ref-1")
-                .imageUrl("http://local/images/old.webp")
-                .uploaderId("user-1")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now().minusDays(3))
-                .build();
-
-        Image recentTemp = Image.builder()
-                .id("img-recent-temp")
-                .status(ImageStatus.TEMP)
-                .referenceType(refProfile)
-                .referenceId("ref-2")
-                .imageUrl("http://local/images/recent.webp")
-                .uploaderId("user-1")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now().minusDays(1))
-                .build();
-
-        Image oldConfirmed = Image.builder()
-                .id("img-old-confirmed")
-                .status(ImageStatus.CONFIRMED)
-                .referenceType(refProfile)
-                .referenceId("ref-3")
-                .imageUrl("http://local/images/conf.webp")
-                .uploaderId("user-1")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now().minusDays(10))
-                .build();
-
-        imageRepository.save(oldTemp);
-        imageRepository.save(recentTemp);
-        imageRepository.save(oldConfirmed);
-
-        // when
-        scheduleService.cleanUpUnusedImages();
-
-        // then
-        assertThat(imageRepository.findById("img-old-temp")).isEmpty();
-        assertThat(imageRepository.findById("img-recent-temp")).isPresent();
-        assertThat(imageRepository.findById("img-old-confirmed")).isPresent();
-    }
+	
+	@TempDir
+	static Path tempDir;
+	@Autowired
+	private ScheduleService scheduleService;
+	@Autowired
+	private ImageRepository imageRepository;
+	@Autowired
+	private ReferenceTypeRepository referenceTypeRepository;
+	private ReferenceType refProfile;
+	
+	@DynamicPropertySource
+	static void props(DynamicPropertyRegistry r) {
+		r.add("images.upload.dir", () -> tempDir.toAbsolutePath().toString());
+	}
+	
+	@BeforeEach
+	void setUp() {
+		imageRepository.deleteAll();
+		refProfile = referenceTypeRepository.findAll().stream()
+				.filter(r -> r.getCode().equals("PROFILE"))
+				.findFirst().orElseThrow();
+	}
+	
+	@AfterEach
+	void tearDown() {
+		imageRepository.deleteAll();
+	}
+	
+	@Test
+	@DisplayName("cleanUpUnusedImages: CONFIRMED 제외, 2일 초과된 이미지만 삭제")
+	void cleanUpUnusedImages_deletesOnlyOldAndUnconfirmed() {
+		// given
+		Image oldTemp = Image.builder()
+				.id("img-old-temp")
+				.status(ImageStatus.TEMP)
+				.referenceType(refProfile)
+				.referenceId("ref-1")
+				.imageUrl("http://local/images/old.webp")
+				.uploaderId("user-1")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now().minusDays(3))
+				.build();
+		
+		Image recentTemp = Image.builder()
+				.id("img-recent-temp")
+				.status(ImageStatus.TEMP)
+				.referenceType(refProfile)
+				.referenceId("ref-2")
+				.imageUrl("http://local/images/recent.webp")
+				.uploaderId("user-1")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now().minusDays(1))
+				.build();
+		
+		Image oldConfirmed = Image.builder()
+				.id("img-old-confirmed")
+				.status(ImageStatus.CONFIRMED)
+				.referenceType(refProfile)
+				.referenceId("ref-3")
+				.imageUrl("http://local/images/conf.webp")
+				.uploaderId("user-1")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now().minusDays(10))
+				.build();
+		
+		imageRepository.save(oldTemp);
+		imageRepository.save(recentTemp);
+		imageRepository.save(oldConfirmed);
+		
+		// when
+		scheduleService.cleanUpUnusedImages();
+		
+		// then
+		assertThat(imageRepository.findById("img-old-temp")).isEmpty();
+		assertThat(imageRepository.findById("img-recent-temp")).isPresent();
+		assertThat(imageRepository.findById("img-old-confirmed")).isPresent();
+	}
 }
