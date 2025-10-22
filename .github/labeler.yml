@@ -1,0 +1,64 @@
+backend:
+  - "SupportServer/src/main/java/**"
+
+docs:
+  - "docs/**"
+  - "*.md"
+  - "README*"
+
+infra:
+  - ".github/**"
+  - "Dockerfile"
+  - "docker-compose*.yml"
+  - ".dockerignore"
+  - "k8s/**"
+  - "kubernetes/**"
+
+database:
+  - "SupportServer/src/main/resources/db/**"
+  - "SupportServer/src/main/resources/migration/**"
+  - "SupportServer/**/*migration*.sql"
+  - "SupportServer/**/*schema*.sql"
+
+# 백엔드 레이어별 라벨
+layer:entity:
+  - "SupportServer/src/main/java/**/entity/**"
+  - "SupportServer/src/main/java/**/domain/**"
+  - "SupportServer/src/main/java/**/model/**"
+
+layer:controller:
+  - "SupportServer/src/main/java/**/controller/**"
+  - "SupportServer/src/main/java/**/api/**"
+
+layer:dto:
+  - "SupportServer/src/main/java/**/dto/**"
+  - "SupportServer/src/main/java/**/request/**"
+  - "SupportServer/src/main/java/**/response/**"
+
+layer:repository:
+  - "SupportServer/src/main/java/**/repository/**"
+  - "SupportServer/src/main/java/**/dao/**"
+
+layer:service:
+  - "SupportServer/src/main/java/**/service/**"
+
+layer:util:
+  - "SupportServer/src/main/java/**/util/**"
+  - "SupportServer/src/main/java/**/helper/**"
+  - "SupportServer/src/main/java/**/common/**"
+
+layer:config:
+  - "SupportServer/src/main/java/**/config/**"
+  - "SupportServer/src/main/java/**/configuration/**"
+
+layer:test:
+  - "SupportServer/src/test/**"
+  - "SupportServer/**/*Test.java"
+  - "SupportServer/**/*Tests.java"
+
+layer:resource:
+  - "SupportServer/src/main/resources/**/*.yml"
+  - "SupportServer/src/main/resources/**/*.yaml"
+  - "SupportServer/src/main/resources/**/*.properties"
+  - "SupportServer/src/main/resources/**/*.xml"
+  - "SupportServer/src/main/resources/**/*.json"
