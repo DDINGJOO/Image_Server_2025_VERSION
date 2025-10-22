@@ -24,14 +24,11 @@ public class ReferenceType {
 	/**
 	 * 기본 키
 	 */
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Integer id;
-	
 	/**
 	 * 참조 타입 코드 (대문자, 유니크)
 	 * 예: PRODUCT, USER, POST, PROFILE, BANNER, CATEGORY
 	 */
+	@Id
 	@Column(name = "code", nullable = false, length = 32)
 	private String code;
 	
