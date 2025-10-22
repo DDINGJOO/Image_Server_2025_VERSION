@@ -666,4 +666,4 @@ src/main/resources/
 
 - **작성일**: 2025-10-22
 - **버전**: 2.0.0
-- **저자**: Image Server Team
+- **저자**: DDING
