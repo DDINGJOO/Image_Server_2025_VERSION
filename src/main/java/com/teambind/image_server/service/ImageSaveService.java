@@ -1,6 +1,5 @@
 package com.teambind.image_server.service;
 
-import com.teambind.image_server.dto.response.SequentialImageResponse;
 import com.teambind.image_server.entity.Image;
 import com.teambind.image_server.entity.StorageObject;
 import com.teambind.image_server.enums.ImageStatus;
@@ -113,10 +112,11 @@ public class ImageSaveService {
 		return Map.of("id", image.getId(), "fileName", Objects.requireNonNull(file.getOriginalFilename()));
 	}
 	
-	public List<SequentialImageResponse> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
-		List<SequentialImageResponse> responses = new ArrayList<>();
+	public Map<String, String> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
+		Map<String, String> responses = new HashMap<>();
 		for (MultipartFile file : files) {
-			responses.add(new SequentialImageResponse(file.getOriginalFilename(), saveImage(file, file.getOriginalFilename(), uploaderId, category).get("fileName")));
+			Map<String, String> result = saveImage(file, uploaderId, category);
+			responses.put(result.get("id"), result.get("fileName"));
 		}
 		return responses;
 	}

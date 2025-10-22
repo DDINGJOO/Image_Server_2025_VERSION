@@ -1,7 +1,6 @@
 package com.teambind.image_server.controller;
 
 
-import com.teambind.image_server.dto.response.SequentialImageResponse;
 import com.teambind.image_server.service.ImageSaveService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -30,11 +29,10 @@ public class ImageSaveController {
 	}
 	
 	@PostMapping(path = "/batch", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public ResponseEntity<List<SequentialImageResponse>> saveImages(@RequestParam("files") List<MultipartFile> files,
+	public ResponseEntity<Map<String, String>> saveImages(@RequestParam("files") List<MultipartFile> files,
 	                                                                @RequestParam String uploaderId,
 	                                                                @RequestParam String category) {
-		List<SequentialImageResponse> response = imageSaveService.saveImages(files, uploaderId, category);
 		
-		return ResponseEntity.ok().body(response);
+		return ResponseEntity.ok().body(imageSaveService.saveImages(files, uploaderId, category));
 	}
 }
