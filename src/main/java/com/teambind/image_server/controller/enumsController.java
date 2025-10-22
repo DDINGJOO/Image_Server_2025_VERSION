@@ -1,9 +1,9 @@
 package com.teambind.image_server.controller;
 
 
+import com.teambind.image_server.config.InitialSetup;
 import com.teambind.image_server.entity.Extension;
 import com.teambind.image_server.entity.ReferenceType;
-import com.teambind.image_server.util.InitialSetup;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

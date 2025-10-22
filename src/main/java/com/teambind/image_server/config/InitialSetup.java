@@ -1,4 +1,4 @@
-package com.teambind.image_server.util;
+package com.teambind.image_server.config;
 
 import com.teambind.image_server.entity.Extension;
 import com.teambind.image_server.entity.ReferenceType;

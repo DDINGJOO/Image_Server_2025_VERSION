@@ -1,12 +1,12 @@
 package com.teambind.image_server.event.publish;
 
 
+import com.teambind.image_server.config.InitialSetup;
 import com.teambind.image_server.entity.Image;
 import com.teambind.image_server.entity.ImageSequence;
 import com.teambind.image_server.event.EventPublisher;
 import com.teambind.image_server.event.events.ImageChangeEvent;
 import com.teambind.image_server.event.events.SequentialImageChangeEvent;
-import com.teambind.image_server.util.InitialSetup;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
