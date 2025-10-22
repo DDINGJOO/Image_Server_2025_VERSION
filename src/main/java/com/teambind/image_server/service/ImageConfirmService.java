@@ -9,13 +9,14 @@ import com.teambind.image_server.exception.CustomException;
 import com.teambind.image_server.exception.ErrorCode;
 import com.teambind.image_server.repository.ImageRepository;
 import com.teambind.image_server.service.util.StatusChanger;
-import com.teambind.image_server.util.InitialSetup;
+import com.teambind.image_server.util.validator.ReferenceTypeValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,6 +31,7 @@ public class ImageConfirmService {
 	private final ImageRepository imageRepository;
 	private final ImageChangeEventPublisher eventPublisher;
 	private final StatusChanger statusChanger;
+	private final ReferenceTypeValidator referenceTypeValidator;
 	private final ApplicationEventPublisher applicationEventPublisher;
 	
 	public void confirmImage(String imageId, String referenceId) {
@@ -49,13 +51,11 @@ public class ImageConfirmService {
 		Image newImage = imageRepository.findById(imageId)
 				.orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
 		
-		// referenceType 코드로 다중/단일 이미지 타입 확인
-		String referenceTypeCode = newImage.getReferenceType().getCode();
 		
 		// 다중 이미지 타입이면 confirmImages()로 위임 (조회한 이미지 재사용)
-		if (!InitialSetup.MONO_IMAGE_REFERENCE_TYPE_MAP.containsKey(referenceTypeCode)) {
+		if (referenceTypeValidator.isMultiImageReferenceType(newImage.getReferenceType().getCode())) {
 			List<String> imageIds = List.of(imageId);
-			confirmImages(imageIds, referenceId, newImage); // preloadedImage 전달 ✅
+			confirmImages(imageIds, referenceId, newImage); // preloadedImage 전달
 			return;
 		}
 		
@@ -108,7 +108,7 @@ public class ImageConfirmService {
 	 * @param preloadedImage 이미 조회된 이미지 (있으면 재사용, 없으면 null)
 	 */
 	@Transactional
-	private void confirmImages(List<String> imageIds, String referenceId, Image preloadedImage) {
+	protected void confirmImages(List<String> imageIds, String referenceId, Image preloadedImage) {
 		log.info("Confirming multiple images: referenceId={}, imageIdCount={}", referenceId, imageIds != null ? imageIds.size() : 0);
 		
 		if (imageIds == null) {
@@ -154,7 +154,7 @@ public class ImageConfirmService {
 				: imageRepository.findAllByIdIn(newImageIds);
 		
 		// 6단계: 확정할 이미지 리스트 구성 (기존 + 새로운 + preloaded)
-		List<Image> confirmedImages = new java.util.ArrayList<>();
+		List<Image> confirmedImages = new ArrayList<>();
 		for (String imageId : imageIds) {
 			if (existingImageMap.containsKey(imageId)) {
 				confirmedImages.add(existingImageMap.get(imageId));
@@ -174,7 +174,7 @@ public class ImageConfirmService {
 			String referenceTypeCode = confirmedImages.get(0).getReferenceType().getCode();
 			
 			// 단일 이미지 타입이면 에러
-			if (InitialSetup.MONO_IMAGE_REFERENCE_TYPE_MAP.containsKey(referenceTypeCode)) {
+			if (referenceTypeValidator.isMonoImageReferenceType(referenceTypeCode)) {
 				throw new CustomException(ErrorCode.NOT_ALLOWED_MULTIPLE_IMAGES);
 			}
 		}

@@ -13,7 +13,7 @@ public class ExtensionValidator {
 	
 	public boolean isValid(String fileName) {
 		String extension = parser.extensionParse(fileName);
-		return InitialSetup.EXTENSION_MAP.containsKey(extension);
+		return InitialSetup.EXTENSION_MAP.containsKey(extension.toUpperCase());
 	}
 	
 	

@@ -12,7 +12,7 @@ import com.teambind.image_server.util.helper.ExtensionParser;
 import com.teambind.image_server.util.helper.UrlHelper;
 import com.teambind.image_server.util.store.LocalImageStorage;
 import com.teambind.image_server.util.validator.ExtensionValidator;
-import com.teambind.image_server.util.validator.ReferenceValidator;
+import com.teambind.image_server.util.validator.ReferenceTypeValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,7 +26,7 @@ import java.util.*;
 public class ImageSaveService {
 	private final ExtensionValidator extensionValidator;
 	private final UrlHelper urlHelper;
-	private final ReferenceValidator referenceValidator;
+	private final ReferenceTypeValidator referenceTypeValidator;
 	private final ImageRepository imageRepository;
 	private final LocalImageStorage imageStorage;
 	private final ExtensionParser extensionParser;
@@ -35,7 +35,7 @@ public class ImageSaveService {
 		if (!extensionValidator.isValid(file.getOriginalFilename())) {
 			throw new CustomException(ErrorCode.FILE_EXTENSION_NOT_FOUND);
 		}
-		if (!referenceValidator.referenceValidate(category)) {
+		if (!referenceTypeValidator.referenceTypeValidate(category)) {
 			throw new CustomException(ErrorCode.REFERENCE_TYPE_NOT_FOUND);
 		}
 		return saveImage(file, file.getOriginalFilename(), uploaderId, category);
