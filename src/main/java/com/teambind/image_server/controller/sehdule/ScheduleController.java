@@ -11,14 +11,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/schedule")
 public class ScheduleController {
-
-    private final ScheduleService scheduleService;
-
-
-    // Crown Job By Api
-    @GetMapping("/cleanup")
-    public void cleanup() {
-        scheduleService.cleanUpUnusedImages();
-    }
-
+	
+	private final ScheduleService scheduleService;
+	
+	
+	// Crown Job By Api
+	@GetMapping("/cleanup")
+	public void cleanup() {
+		scheduleService.cleanUpUnusedImages();
+	}
+	
 }

@@ -27,70 +27,135 @@ import static com.teambind.image_server.ImageServerApplication.referenceTypeMap;
 @Slf4j
 @Transactional
 public class ImageConfirmService {
-    private final ImageRepository imageRepository;
-    private final StatusChanger statusChanger;
-
-    public Image confirmImage(String imageId, String referenceId) {
-
-        log.info("Confirming image with id: {}", imageId);
-        if (imageId == null || imageId.isEmpty()) {
-            throw new CustomException(ErrorCode.IMAGE_NOT_FOUND);
-        }
-        Image image = imageRepository.findById(imageId).orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
-        image.setReferenceId(referenceId);
-        if (image.getStatus().equals(ImageStatus.CONFIRMED))
-            throw new CustomException(ErrorCode.IMAGE_ALREADY_CONFIRMED);
-        image = statusChanger.changeStatus(image, ImageStatus.CONFIRMED);
-
-        if (image.getReferenceType().getName().equals("PROFILE")) {
-            deleteOldProfileImg(imageId, image.getUploaderId(), referenceTypeMap.get("PROFILE"));
-        }
-        imageRepository.save(image);
-        return image;
-    }
-
-    public void deleteOldProfileImg(String imageId, String uploaderId, ReferenceType referenceType) {
-        log.info("Confirming profile image with id: {}", imageId);
-
-        Image oldProfile = imageRepository.findByIdAndUploaderIdAndReferenceType(imageId, uploaderId, referenceType);
-
-        if (oldProfile == null) {
-            return;
-        }
-
-        oldProfile = statusChanger.changeStatus(oldProfile, ImageStatus.DELETED);
-        imageRepository.save(oldProfile);
-    }
-
-
-    @Transactional
-    public List<Image> confirmImages(List<String> imageId, String referenceId) {
-        List<Image> images = imageRepository.findAllByReferenceId(referenceId);
-
-        List<SequentialImageChangeEvent> imageChangeEvents = new ArrayList<>();
-        // 기존 이미지 삭제 대기 처리
-        for (Image image : images) {
-            image = statusChanger.changeStatus(image, ImageStatus.DELETED);
-            imageRepository.save(image);
-        }
-
-        // 나머지 이미지 확정 처리
-        List<Image> confirmedImages = imageRepository.findAllByIdIn(imageId);
-        for (Image image : confirmedImages) {
-            statusChanger.changeStatus(image, ImageStatus.CONFIRMED);
-        }
-        imageRepository.saveAll(confirmedImages);
-        Map<String, Image> confirmedMap = confirmedImages.stream()
-                .collect(Collectors.toMap(Image::getId, Function.identity()));
-
-        //imageId 의 id 순서랑 똑같은 Image리스트를 만들고 싶어
-        List<Image> orderedConfirmed = new ArrayList<>();
-        for (String id : imageId) {
-            Image img = confirmedMap.get(id);
-            if (img != null) {
-                orderedConfirmed.add(img);
-            }
-        }
-        return orderedConfirmed;
-    }
+	private final ImageRepository imageRepository;
+	private final StatusChanger statusChanger;
+	
+	public Image confirmImage(String imageId, String referenceId) {
+		
+		log.info("Confirming image with id: {}", imageId);
+		if (imageId == null || imageId.isEmpty()) {
+			throw new CustomException(ErrorCode.IMAGE_NOT_FOUND);
+		}
+		Image image = imageRepository.findById(imageId).orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
+		image.setReferenceId(referenceId);
+		if (image.getStatus().equals(ImageStatus.CONFIRMED))
+			throw new CustomException(ErrorCode.IMAGE_ALREADY_CONFIRMED);
+		
+		// ReferenceType 제약 검증
+		ReferenceType referenceType = image.getReferenceType();
+		validateSingleImageConstraint(referenceId, referenceType, imageId);
+		
+		image = statusChanger.changeStatus(image, ImageStatus.CONFIRMED);
+		
+		if (image.getReferenceType().getName().equals("PROFILE")) {
+			deleteOldProfileImg(imageId, image.getUploaderId(), referenceTypeMap.get("PROFILE"));
+		}
+		imageRepository.save(image);
+		return image;
+	}
+	
+	public void deleteOldProfileImg(String imageId, String uploaderId, ReferenceType referenceType) {
+		log.info("Confirming profile image with id: {}", imageId);
+		
+		Image oldProfile = imageRepository.findByIdAndUploaderIdAndReferenceType(imageId, uploaderId, referenceType);
+		
+		if (oldProfile == null) {
+			return;
+		}
+		
+		oldProfile = statusChanger.changeStatus(oldProfile, ImageStatus.DELETED);
+		imageRepository.save(oldProfile);
+	}
+	
+	
+	@Transactional
+	public List<Image> confirmImages(List<String> imageId, String referenceId) {
+		// 이미지 개수가 0개인 경우 처리
+		if (imageId == null || imageId.isEmpty()) {
+			imageRepository.deleteAllByReferenceId(referenceId);
+			return new ArrayList<>();
+		}
+		
+		// 나머지 이미지 확정 처리
+		List<Image> confirmedImages = imageRepository.findAllByIdIn(imageId);
+		if (confirmedImages.isEmpty()) {
+			throw new CustomException(ErrorCode.IMAGE_NOT_FOUND);
+		}
+		
+		// ReferenceType 제약 검증 (첫 번째 이미지의 referenceType 사용)
+		ReferenceType referenceType = confirmedImages.get(0).getReferenceType();
+		validateImageCountConstraint(referenceType, imageId.size());
+		
+		List<Image> images = imageRepository.findAllByReferenceId(referenceId);
+		
+		List<SequentialImageChangeEvent> imageChangeEvents = new ArrayList<>();
+		// 기존 이미지 삭제 대기 처리
+		for (Image image : images) {
+			image = statusChanger.changeStatus(image, ImageStatus.DELETED);
+			imageRepository.save(image);
+		}
+		
+		for (Image image : confirmedImages) {
+			statusChanger.changeStatus(image, ImageStatus.CONFIRMED);
+		}
+		imageRepository.saveAll(confirmedImages);
+		Map<String, Image> confirmedMap = confirmedImages.stream()
+				.collect(Collectors.toMap(Image::getId, Function.identity()));
+		
+		//imageId 의 id 순서랑 똑같은 Image리스트를 만들고 싶어
+		List<Image> orderedConfirmed = new ArrayList<>();
+		for (String id : imageId) {
+			Image img = confirmedMap.get(id);
+			if (img != null) {
+				orderedConfirmed.add(img);
+			}
+		}
+		return orderedConfirmed;
+	}
+	
+	// ==================== 검증 메서드 ====================
+	
+	/**
+	 * 단일 이미지 제약 검증
+	 * 단일 이미지만 허용하는 ReferenceType의 경우, 이미 확정된 이미지가 있는지 확인
+	 *
+	 * @param referenceId    참조 ID
+	 * @param referenceType  참조 타입
+	 * @param excludeImageId 제외할 이미지 ID (현재 확정하려는 이미지)
+	 * @throws CustomException 단일 이미지만 허용하는데 이미 확정된 이미지가 있는 경우
+	 */
+	private void validateSingleImageConstraint(String referenceId, ReferenceType referenceType, String excludeImageId) {
+		if (referenceType.isSingleImageOnly()) {
+			// 같은 referenceId와 referenceType으로 이미 확정된 이미지가 있는지 확인
+			List<Image> existingImages = imageRepository.findAllByReferenceId(referenceId);
+			long confirmedCount = existingImages.stream()
+					.filter(img -> img.getStatus() == ImageStatus.CONFIRMED)
+					.filter(img -> !img.getId().equals(excludeImageId))
+					.count();
+			
+			if (confirmedCount > 0) {
+				String message = referenceType.getValidationMessage(1);
+				log.warn("단일 이미지 제약 위반: referenceId={}, referenceType={}, 기존 확정 이미지 개수={}",
+						referenceId, referenceType.getCode(), confirmedCount);
+				throw new CustomException(ErrorCode.IMAGE_COUNT_EXCEEDED);
+			}
+		}
+	}
+	
+	/**
+	 * 이미지 개수 제약 검증
+	 * ReferenceType의 allowsMultiple과 maxImages 속성을 확인하여 검증
+	 *
+	 * @param referenceType 참조 타입
+	 * @param imageCount    확정하려는 이미지 개수
+	 * @throws CustomException 이미지 개수가 제약을 초과하는 경우
+	 */
+	private void validateImageCountConstraint(ReferenceType referenceType, int imageCount) {
+		if (!referenceType.isImageCountAllowed(imageCount)) {
+			String message = referenceType.getValidationMessage(imageCount);
+			log.warn("이미지 개수 제약 위반: referenceType={}, 요청 개수={}, 허용 개수={}, 메시지={}",
+					referenceType.getCode(), imageCount, referenceType.getEffectiveMaxImages(), message);
+			throw new CustomException(ErrorCode.IMAGE_COUNT_EXCEEDED);
+		}
+	}
 }

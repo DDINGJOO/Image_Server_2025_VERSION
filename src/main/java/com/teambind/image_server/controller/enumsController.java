@@ -17,22 +17,22 @@ import static com.teambind.image_server.ImageServerApplication.referenceTypeMap;
 @RestController
 @RequestMapping("/api/enums")
 public class enumsController {
-    @GetMapping("/extensions")
-
-    public ResponseEntity<Map<String, String>> getEnums() {
-        Map<String, String> map = new HashMap<>();
-        for (Map.Entry<String, Extension> entry : extensionMap.entrySet()) {
-            map.put(entry.getKey(), entry.getValue().getName());
-        }
-        return ResponseEntity.ok(map);
-    }
-
-    @GetMapping("/referenceType")
-    public ResponseEntity<Map<String, String>> getReferenceTypes() {
-        Map<String, String> map = new HashMap<>();
-        for (Map.Entry<String, ReferenceType> entry : referenceTypeMap.entrySet()) {
-            map.put(entry.getKey(), entry.getValue().getName());
-        }
-        return ResponseEntity.ok(map);
-    }
+	@GetMapping("/extensions")
+	
+	public ResponseEntity<Map<String, String>> getEnums() {
+		Map<String, String> map = new HashMap<>();
+		for (Map.Entry<String, Extension> entry : extensionMap.entrySet()) {
+			map.put(entry.getKey(), entry.getValue().getName());
+		}
+		return ResponseEntity.ok(map);
+	}
+	
+	@GetMapping("/referenceType")
+	public ResponseEntity<Map<String, String>> getReferenceTypes() {
+		Map<String, String> map = new HashMap<>();
+		for (Map.Entry<String, ReferenceType> entry : referenceTypeMap.entrySet()) {
+			map.put(entry.getKey(), entry.getValue().getName());
+		}
+		return ResponseEntity.ok(map);
+	}
 }

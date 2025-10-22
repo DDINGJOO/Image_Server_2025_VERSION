@@ -6,11 +6,11 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UrlHelper {
-
-    @Value("${images.base-url}")
-    private String baseUrl;
-
-    public String getUrl(String storedPath) {
-        return baseUrl + storedPath;
-    }
+	
+	@Value("${images.base-url}")
+	private String baseUrl;
+	
+	public String getUrl(String storedPath) {
+		return baseUrl + storedPath;
+	}
 }

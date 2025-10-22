@@ -10,9 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RequestMapping("/health")
 public class HealthController {
-    @GetMapping
-    public String health() {
-        log.info("Health check");
-        return "Server is up";
-    }
+	@GetMapping
+	public String health() {
+		log.info("Health check");
+		return "Server is up";
+	}
 }

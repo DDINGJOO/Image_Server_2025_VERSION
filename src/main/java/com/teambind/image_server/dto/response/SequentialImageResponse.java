@@ -7,6 +7,6 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class SequentialImageResponse {
-    private String imageFileName;
-    private String imageId;
+	private String imageFileName;
+	private String imageId;
 }

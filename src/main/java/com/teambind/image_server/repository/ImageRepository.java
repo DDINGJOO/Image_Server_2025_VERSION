@@ -11,12 +11,13 @@ import java.util.List;
 
 @Repository
 public interface ImageRepository extends JpaRepository<Image, String> {
-    Image findByIdAndUploaderIdAndReferenceType(String imageId, String uploaderId, ReferenceType referenceType);
-
-    List<Image> findAllByStatusNot(ImageStatus status);
-
-    List<Image> findAllByReferenceId(String referenceId);
-
-    List<Image> findAllByIdIn(List<String> imageIds);
-
+	Image findByIdAndUploaderIdAndReferenceType(String imageId, String uploaderId, ReferenceType referenceType);
+	
+	List<Image> findAllByStatusNot(ImageStatus status);
+	
+	List<Image> findAllByReferenceId(String referenceId);
+	
+	List<Image> findAllByIdIn(List<String> imageIds);
+	
+	void deleteAllByReferenceId(String referenceId);
 }

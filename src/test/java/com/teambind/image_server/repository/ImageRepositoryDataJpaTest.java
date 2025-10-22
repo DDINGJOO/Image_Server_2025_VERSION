@@ -22,84 +22,84 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @SpringBootTest
 class ImageRepositoryDataJpaTest {
-
-    @Autowired
-    private ImageRepository imageRepository;
-    @Autowired
-    private ReferenceTypeRepository referenceTypeRepository;
-
-    @BeforeEach
-    void setUp() {
-    }
-
-    @AfterEach
-    void tearDown() {
-
-    }
-
-    @Test
-    @DisplayName("이미지를 저장/조회할 수 있다")
-    void saveAndFindById() {
-        ReferenceType ref = referenceTypeRepository.findAll().stream()
-                .filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
-
-        Image image = Image.builder()
-                .id("img-1")
-                .status(ImageStatus.TEMP)
-                .referenceType(ref)
-                .imageUrl("http://local/images/x.webp")
-                .uploaderId("user-1")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        imageRepository.save(image);
-        imageRepository.flush();
-
-        assertThat(imageRepository.findById("img-1")).isPresent();
-    }
-
-    @Test
-    @DisplayName("업로더/레퍼런스 타입으로 단건 조회한다")
-    void findByUploaderAndRefType() {
-        ReferenceType ref = referenceTypeRepository.findAll().stream()
-                .filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
-
-        Image image = Image.builder()
-                .id("img-2")
-                .status(ImageStatus.TEMP)
-                .referenceType(ref)
-                .imageUrl("http://local/images/y.webp")
-                .uploaderId("user-2")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        imageRepository.save(image);
-
-        Image found = imageRepository.findByIdAndUploaderIdAndReferenceType("img-2", "user-2", ref);
-        assertThat(found).isNotNull();
-        assertThat(found.getId()).isEqualTo("img-2");
-    }
-
-    @Test
-    @DisplayName("미매칭 조건으로 조회 시 null을 반환한다")
-    void findByUploaderAndRefType_notMatch_returnsNull() {
-        ReferenceType ref = referenceTypeRepository.findAll().stream()
-                .filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
-
-        Image image = Image.builder()
-                .id("img-3")
-                .status(ImageStatus.TEMP)
-                .referenceType(ref)
-                .imageUrl("http://local/images/z.webp")
-                .uploaderId("user-3")
-                .idDeleted(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        imageRepository.save(image);
-
-        // uploaderId가 다르면 null
-        Image notFound = imageRepository.findByIdAndUploaderIdAndReferenceType("img-3", "another", ref);
-        assertThat(notFound).isNull();
-    }
+	
+	@Autowired
+	private ImageRepository imageRepository;
+	@Autowired
+	private ReferenceTypeRepository referenceTypeRepository;
+	
+	@BeforeEach
+	void setUp() {
+	}
+	
+	@AfterEach
+	void tearDown() {
+	
+	}
+	
+	@Test
+	@DisplayName("이미지를 저장/조회할 수 있다")
+	void saveAndFindById() {
+		ReferenceType ref = referenceTypeRepository.findAll().stream()
+				.filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
+		
+		Image image = Image.builder()
+				.id("img-1")
+				.status(ImageStatus.TEMP)
+				.referenceType(ref)
+				.imageUrl("http://local/images/x.webp")
+				.uploaderId("user-1")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now())
+				.build();
+		
+		imageRepository.save(image);
+		imageRepository.flush();
+		
+		assertThat(imageRepository.findById("img-1")).isPresent();
+	}
+	
+	@Test
+	@DisplayName("업로더/레퍼런스 타입으로 단건 조회한다")
+	void findByUploaderAndRefType() {
+		ReferenceType ref = referenceTypeRepository.findAll().stream()
+				.filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
+		
+		Image image = Image.builder()
+				.id("img-2")
+				.status(ImageStatus.TEMP)
+				.referenceType(ref)
+				.imageUrl("http://local/images/y.webp")
+				.uploaderId("user-2")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now())
+				.build();
+		imageRepository.save(image);
+		
+		Image found = imageRepository.findByIdAndUploaderIdAndReferenceType("img-2", "user-2", ref);
+		assertThat(found).isNotNull();
+		assertThat(found.getId()).isEqualTo("img-2");
+	}
+	
+	@Test
+	@DisplayName("미매칭 조건으로 조회 시 null을 반환한다")
+	void findByUploaderAndRefType_notMatch_returnsNull() {
+		ReferenceType ref = referenceTypeRepository.findAll().stream()
+				.filter(r -> r.getCode().equals("PROFILE")).findFirst().orElseThrow();
+		
+		Image image = Image.builder()
+				.id("img-3")
+				.status(ImageStatus.TEMP)
+				.referenceType(ref)
+				.imageUrl("http://local/images/z.webp")
+				.uploaderId("user-3")
+				.idDeleted(false)
+				.createdAt(LocalDateTime.now())
+				.build();
+		imageRepository.save(image);
+		
+		// uploaderId가 다르면 null
+		Image notFound = imageRepository.findByIdAndUploaderIdAndReferenceType("img-3", "another", ref);
+		assertThat(notFound).isNull();
+	}
 }

@@ -12,11 +12,11 @@ import java.util.Map;
 @SpringBootApplication
 @Slf4j
 public class ImageServerApplication {
-
-    public static final Map<String, Extension> extensionMap = new HashMap<>();
-    public static final Map<String, ReferenceType> referenceTypeMap = new HashMap<>();
-
-    public static void main(String[] args) {
-        SpringApplication.run(ImageServerApplication.class, args);
-    }
+	
+	public static final Map<String, Extension> extensionMap = new HashMap<>();
+	public static final Map<String, ReferenceType> referenceTypeMap = new HashMap<>();
+	
+	public static void main(String[] args) {
+		SpringApplication.run(ImageServerApplication.class, args);
+	}
 }
