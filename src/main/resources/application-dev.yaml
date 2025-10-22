@@ -55,6 +55,10 @@ spring:
       mode: never
 
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 100MB
 images:
   upload:
     dir: /Users/ddingjoo/IdeaProjects/MSA-WORKSHOP/Image_Server/nginx/images/uploads
