@@ -1,4 +1,4 @@
-package com.teambind.image_server.util.statuschanger;
+package com.teambind.image_server.service.util;
 
 import com.teambind.image_server.entity.Image;
 import com.teambind.image_server.entity.StatusHistory;

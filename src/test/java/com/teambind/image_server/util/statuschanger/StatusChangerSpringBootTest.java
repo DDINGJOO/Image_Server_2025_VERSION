@@ -7,6 +7,7 @@ import com.teambind.image_server.enums.ImageStatus;
 import com.teambind.image_server.repository.ImageRepository;
 import com.teambind.image_server.repository.ReferenceTypeRepository;
 import com.teambind.image_server.repository.StatusHistoryRepository;
+import com.teambind.image_server.service.util.StatusChanger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
