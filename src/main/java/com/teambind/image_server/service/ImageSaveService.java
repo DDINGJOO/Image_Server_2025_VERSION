@@ -7,6 +7,7 @@ import com.teambind.image_server.enums.ImageStatus;
 import com.teambind.image_server.exception.CustomException;
 import com.teambind.image_server.exception.ErrorCode;
 import com.teambind.image_server.repository.ImageRepository;
+import com.teambind.image_server.util.InitialSetup;
 import com.teambind.image_server.util.convertor.ImageUtil;
 import com.teambind.image_server.util.helper.ExtensionParser;
 import com.teambind.image_server.util.helper.UrlHelper;
@@ -20,9 +21,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
-
-import static com.teambind.image_server.ImageServerApplication.extensionMap;
-import static com.teambind.image_server.ImageServerApplication.referenceTypeMap;
 
 @Service
 @RequiredArgsConstructor
@@ -96,15 +94,15 @@ public class ImageSaveService {
 				.createdAt(LocalDateTime.now())
 				.idDeleted(false)
 				.status(ImageStatus.TEMP)
-				.referenceType(referenceTypeMap.get(category.toUpperCase()))
+				.referenceType(InitialSetup.ALL_REFERENCE_TYPE_MAP.get(category.toUpperCase()))
 				.imageUrl(urlHelper.getUrl(storedPath))
 				.uploaderId(uploaderId)
 				.build();
 		
 		StorageObject storageObject = StorageObject.builder()
 				.image(image)
-				.convertedFormat(extensionMap.get(convertedFormatCode))
-				.originFormat(extensionMap.get(originExtUpper))
+				.convertedFormat(InitialSetup.EXTENSION_MAP.get(convertedFormatCode))
+				.originFormat(InitialSetup.EXTENSION_MAP.get(originExtUpper))
 				.originSize(file.getSize())
 				.convertedSize((long) savedBytes.length)
 				.storageLocation(storedPath)
