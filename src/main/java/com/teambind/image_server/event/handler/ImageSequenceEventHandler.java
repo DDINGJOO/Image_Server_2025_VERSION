@@ -33,16 +33,17 @@ public class ImageSequenceEventHandler {
 	/**
 	 * 이미지 확정 이벤트 핸들러
 	 * <p>
-	 * 트랜잭션 커밋 전에 실행되며, 다음 단계로 진행됩니다:
+	 * 트랜잭션 커밋 후에 실행되며, 다음 단계로 진행됩니다:
 	 * 1. ImageSequence 재생성 (기존 삭제 + 새로 생성)
 	 * 2. 외부 시스템에 이미지 변경 이벤트 발행
 	 * <p>
-	 * BEFORE_COMMIT을 사용하여 같은 트랜잭션 내에서 실행되므로,
-	 * 이벤트 처리 중 예외 발생 시 전체 트랜잭션이 롤백됩니다.
+	 * AFTER_COMMIT을 사용하여 DB 커밋이 성공한 후에만 Kafka 발행을 수행합니다.
+	 * 이를 통해 DB 저장의 안전성을 보장하고, Kafka 발행 실패가 DB 트랜잭션에 영향을 주지 않도록 합니다.
+	 * Kafka 발행 실패 시에도 DB는 안전하게 저장됩니다.
 	 *
 	 * @param event 이미지 확정 이벤트
 	 */
-	@TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void handleImagesConfirmed(ImagesConfirmedEvent event) {
 		log.info("Handling ImagesConfirmedEvent: referenceId={}, imageCount={}",
 				event.getReferenceId(), event.getImageCount());
