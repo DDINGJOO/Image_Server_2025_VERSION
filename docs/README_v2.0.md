@@ -10,8 +10,9 @@
 4. [데이터베이스 스키마](#데이터베이스-스키마)
 5. [API 엔드포인트](#api-엔드포인트)
 6. [기술 스택](#기술-스택)
-7. [설정 및 실행](#설정-및-실행)
-8. [배포](#배포)
+7. [테스트](#테스트)
+8. [설정 및 실행](#설정-및-실행)
+9. [배포](#배포)
 
 ---
 
@@ -456,10 +457,233 @@ Response: 204 No Content
 
 ### Testing
 
-- **JUnit 5**
-- **Mockito**: 5.2.0
-- **Spring Boot Test**
-- **@DataJpaTest**
+- **JUnit 5**: 단위 테스트 프레임워크
+- **Mockito**: 5.2.0 (Static mocking 포함)
+- **Spring Boot Test**: 통합 테스트 지원
+- **MockMvc**: Controller 레이어 테스트
+- **AssertJ**: 유창한 assertion 라이브러리
+- **H2 Database**: 인메모리 테스트 데이터베이스
+- **TestEntityManager**: JPA 슬라이스 테스트
+
+---
+
+## 테스트
+
+### 테스트 전략
+
+이 프로젝트는 **포괄적인 단위 테스트**를 통해 코드 품질과 안정성을 보장합니다.
+
+#### 테스트 커버리지
+
+```
+총 테스트 수: 197+
+성공률: 100%
+```
+
+### 테스트 구조
+
+#### 1. Validator Layer (100+ 테스트)
+
+**파일**: `src/test/java/com/teambind/image_server/util/validator/`
+
+- `CategoryValidatorTest`: 카테고리 유효성 검증
+  - 유효한 카테고리 검증
+  - 대소문자 처리
+  - null/빈 값 처리
+
+- `ExtensionValidatorTest`: 파일 확장자 검증
+  - 지원 확장자 검증 (JPG, PNG, WEBP 등)
+  - 대소문자 처리
+  - 잘못된 확장자 처리
+
+- `ReferenceTypeValidatorTest`: 참조 타입 검증
+  - MONO/MULTI 타입 판별
+  - 최대 이미지 수 검증
+
+- `RequestDtoValidatorTest`: 요청 DTO 검증
+  - 필수 파라미터 검증
+  - 복합 유효성 검증
+
+**실행**:
+```bash
+./gradlew test --tests "*validator*"
+```
+
+#### 2. Entity Layer (25 테스트)
+
+**파일**: `src/test/java/com/teambind/image_server/entity/`
+
+- `ImageTest`: Image 엔티티
+  - Builder 패턴 검증
+  - 필수 필드 검증
+  - 비즈니스 로직 테스트
+
+- `ReferenceTypeTest`: ReferenceType 엔티티
+  - MONO/MULTI 타입 구분
+  - 메타데이터 검증
+
+**실행**:
+```bash
+./gradlew test --tests "*entity*"
+```
+
+#### 3. DTO Layer (10 테스트)
+
+**파일**: `src/test/java/com/teambind/image_server/dto/`
+
+- 요청/응답 DTO 빌더 패턴 테스트
+- 유효성 검증 어노테이션 테스트
+- `ImageConfirmRequest`, `ImageBatchConfirmRequest`
+
+**실행**:
+```bash
+./gradlew test --tests "*dto*"
+```
+
+#### 4. Controller Layer (33 테스트)
+
+**파일**: `src/test/java/com/teambind/image_server/controller/`
+
+**ImageSaveControllerTest** (22 테스트):
+- 단일/다중 이미지 업로드 정상 케이스
+- 필수 파라미터 검증 (uploaderId, category)
+- 파일 확장자 검증
+- MockMvc 기반 API 엔드포인트 테스트
+
+**ImageConfirmControllerTest** (11 테스트):
+- 단일 이미지 확정
+- 다중 이미지 배치 확정
+- 엣지 케이스 처리
+
+**실행**:
+```bash
+./gradlew test --tests "*controller*"
+```
+
+#### 5. Service Layer (20 테스트)
+
+**파일**: `src/test/java/com/teambind/image_server/service/`
+
+**ImageSaveServiceTest** (10 테스트):
+- WebP 변환 성공/실패 시나리오
+- Rosetta 에러 폴백 메커니즘
+- 파일명 유효성 검증
+- 다중 이미지 처리
+- 이미지 속성 검증
+
+**ImageConfirmServiceTest** (10 테스트):
+- 신규 이미지 확정
+- 기존 이미지 교체
+- 동일 이미지 확정 (no-op)
+- MONO 타입 다중 이미지 제한
+- 부분 업데이트 처리
+- 빈 imageId 처리
+
+**실행**:
+```bash
+./gradlew test --tests "*service*"
+```
+
+#### 6. Repository Layer (9 테스트)
+
+**파일**: `src/test/java/com/teambind/image_server/repository/`
+
+**ImageRepositoryTest**:
+- JPA 쿼리 메서드 테스트
+- `@DataJpaTest`를 활용한 데이터 계층 테스트
+- 복합 키 조회
+- 배치 처리
+- 삭제 작업
+
+**주요 테스트**:
+- Save and find by ID
+- Find by composite keys (imageId, uploaderId, referenceType)
+- Find by status exclusion
+- Find by referenceId
+- Batch find by IDs
+- Delete by referenceId
+
+**실행**:
+```bash
+./gradlew test --tests "*repository*"
+```
+
+### 테스트 환경 설정
+
+#### application-test.yaml
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MYSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+images:
+  upload:
+    dir: ${java.io.tmpdir}/test-images
+  base-url: http://localhost:8080/images/
+```
+
+### 테스트 픽스처
+
+**TestFixtureFactory**: 테스트 데이터 생성 팩토리
+
+```java
+// 엔티티 생성
+Image image = TestFixtureFactory.createTempImage("image-123");
+ReferenceType profile = TestFixtureFactory.createProfileReferenceType();
+Extension jpg = TestFixtureFactory.createJpgExtension();
+
+// MockMultipartFile 생성
+MultipartFile file = TestFixtureFactory.createValidImageFile();
+List<MultipartFile> files = TestFixtureFactory.createValidImageFiles(3);
+```
+
+### 테스트 실행
+
+```bash
+# 전체 테스트 실행
+./gradlew test
+
+# 특정 레이어 테스트
+./gradlew test --tests "*controller*"
+./gradlew test --tests "*service*"
+./gradlew test --tests "*repository*"
+
+# 테스트 리포트 생성
+./gradlew test jacocoTestReport
+
+# 빌드 with 테스트
+./gradlew clean build
+```
+
+### 테스트 베스트 프랙티스
+
+1. **Given-When-Then 패턴**: 모든 테스트는 명확한 구조를 따름
+2. **DisplayName 사용**: 한글로 테스트 의도 명확히 표현
+3. **Mock 분리**: `@Mock`, `@InjectMocks`로 의존성 분리
+4. **Static Mocking**: ImageUtil.toWebp() 등 정적 메서드 모킹
+5. **테스트 격리**: `@BeforeEach`로 초기화, 각 테스트 독립 실행
+6. **AssertJ 활용**: 유창한 assertion으로 가독성 향상
 
 ---
 
@@ -677,6 +901,36 @@ src/main/resources/
 └── sql/
     ├── schema-mariadb.sql                 # 업데이트
     └── data-mariadb.sql                   # 업데이트
+
+src/test/java/com/teambind/image_server/
+├── controller/
+│   ├── ImageSaveControllerTest.java       # 22 테스트
+│   └── ImageConfirmControllerTest.java    # 11 테스트
+│
+├── service/
+│   ├── ImageSaveServiceTest.java          # 10 테스트
+│   └── ImageConfirmServiceTest.java       # 10 테스트
+│
+├── repository/
+│   └── ImageRepositoryTest.java           # 9 테스트
+│
+├── entity/
+│   ├── ImageTest.java                     # 14 테스트
+│   └── ReferenceTypeTest.java             # 11 테스트
+│
+├── dto/
+│   └── request/
+│       └── ImageConfirmRequestTest.java   # 10 테스트
+│
+└── util/
+    └── validator/
+        ├── CategoryValidatorTest.java     # 다수
+        ├── ExtensionValidatorTest.java    # 다수
+        ├── ReferenceTypeValidatorTest.java # 다수
+        └── RequestDtoValidatorTest.java   # 다수
+
+src/test/resources/
+└── application-test.yaml                  # 테스트 환경 설정
 ```
 
 ---
@@ -718,10 +972,28 @@ src/main/resources/
 - ImageSequenceService 신규 추가
 - SRP(Single Responsibility Principle) 준수
 
+### 7. 포괄적인 단위 테스트 구현
+
+- **총 테스트 수**: 197+ 테스트
+- **커버리지**: Validator, Entity, DTO, Controller, Service, Repository 전 레이어
+- **성공률**: 100%
+- **테스트 인프라**: TestFixtureFactory, application-test.yaml, H2 in-memory DB
+- **모킹 전략**: Mockito Static mocking으로 외부 의존성 제거
+- **테스트 패턴**: Given-When-Then, Mock 분리, AssertJ assertion
+
+**주요 성과**:
+- WebP 변환 성공/실패 시나리오 커버
+- Rosetta 에러 폴백 메커니즘 검증
+- MONO/MULTI 타입 비즈니스 로직 검증
+- 이미지 확정 워크플로우 완벽 테스트
+- JPA 쿼리 메서드 검증
+- API 엔드포인트 통합 테스트
+
 ---
 
 ## 문서
 
 - **작성일**: 2025-10-22
+- **최종 업데이트**: 2025-10-23
 - **버전**: 2.0.0
 - **저자**: DDING
