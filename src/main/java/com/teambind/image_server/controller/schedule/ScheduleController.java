@@ -1,4 +1,4 @@
-package com.teambind.image_server.controller.sehdule;
+package com.teambind.image_server.controller.schedule;
 
 
 import com.teambind.image_server.service.ScheduleService;
