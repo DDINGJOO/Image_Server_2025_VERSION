@@ -10,17 +10,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @Slf4j
 @RequiredArgsConstructor
 public class InitialSetup {
-	public static final Map<String, ReferenceType> ALL_REFERENCE_TYPE_MAP = new HashMap<>();
-	public static final Map<String, Extension> EXTENSION_MAP = new HashMap<>();
-	public static final Map<String, ReferenceType> MONO_IMAGE_REFERENCE_TYPE_MAP = new HashMap<>();
-	public static final Map<String, ReferenceType> MULTI_IMAGE_REFERENCE_TYPE_MAP = new HashMap<>();
+	public static final Map<String, ReferenceType> ALL_REFERENCE_TYPE_MAP = new ConcurrentHashMap<>();
+	public static final Map<String, Extension> EXTENSION_MAP = new ConcurrentHashMap<>();
+	public static final Map<String, ReferenceType> MONO_IMAGE_REFERENCE_TYPE_MAP = new ConcurrentHashMap<>();
+	public static final Map<String, ReferenceType> MULTI_IMAGE_REFERENCE_TYPE_MAP = new ConcurrentHashMap<>();
 	private final ReferenceTypeRepository referenceTypeRepository;
 	private final ExtensionRepository extensionRepository;
 	
