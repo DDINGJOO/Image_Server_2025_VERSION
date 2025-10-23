@@ -93,7 +93,7 @@ public class ImageSaveService {
 		Image image = Image.builder()
 				.id(uuid)
 				.createdAt(LocalDateTime.now())
-				.idDeleted(false)
+				.isDeleted(false)
 				.status(ImageStatus.TEMP)
 				.referenceType(InitialSetup.ALL_REFERENCE_TYPE_MAP.get(category.toUpperCase()))
 				.imageUrl(urlHelper.getUrl(storedPath))
