@@ -15,14 +15,14 @@ public class ImageConfirmController {
 	private final ImageConfirmService imageConfirmService;
 	
 	
-	@GetMapping("/confirm/{referenceId}")
+	@PostMapping("/confirm/{referenceId}")
 	public ResponseEntity<Void> confirmImage(@RequestParam String imageId, @PathVariable(name = "referenceId") String referenceId) {
 		imageConfirmService.confirmImage(imageId, referenceId);
 		return ResponseEntity.ok().build();
 	}
 	
-	@GetMapping("/confirm/{referenceId}")
-	public ResponseEntity<Void> confirmImages(@RequestParam List<String> imageIds, @PathVariable(name = "referenceId") String referenceId) {
+	@PostMapping("/confirm/{referenceId}/batch")
+	public ResponseEntity<Void> confirmImages(@RequestBody List<String> imageIds, @PathVariable(name = "referenceId") String referenceId) {
 		imageConfirmService.confirmImages(imageIds, referenceId);
 		return ResponseEntity.ok().build();
 	}
