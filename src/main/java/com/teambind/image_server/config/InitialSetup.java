@@ -25,7 +25,7 @@ public class InitialSetup {
 	
 	@PostConstruct
 	public void init() {
-	
+		setupData();
 	}
 	
 	
@@ -35,6 +35,11 @@ public class InitialSetup {
 		MONO_IMAGE_REFERENCE_TYPE_MAP.clear();
 		MULTI_IMAGE_REFERENCE_TYPE_MAP.clear();
 		EXTENSION_MAP.clear();
+		setupData();
+
+	}
+	
+	private void setupData() {
 		List<ReferenceType> referenceTypeList = referenceTypeRepository.findAll();
 		referenceTypeList.forEach(r -> {
 			ALL_REFERENCE_TYPE_MAP.put(r.getCode(), r);
