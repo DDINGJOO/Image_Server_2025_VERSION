@@ -44,6 +44,8 @@ public class InitialSetup {
 	private void loadReferenceType() {
 		synchronized (ALL_REFERENCE_TYPE_MAP) {
 			ALL_REFERENCE_TYPE_MAP.clear();
+			MONO_IMAGE_REFERENCE_TYPE_MAP.clear();
+			MULTI_IMAGE_REFERENCE_TYPE_MAP.clear();
 			referenceTypeRepository.findAll().forEach(r -> {
 				ALL_REFERENCE_TYPE_MAP.put(r.getCode(), r);
 				if (r.getAllowsMultiple()) {
