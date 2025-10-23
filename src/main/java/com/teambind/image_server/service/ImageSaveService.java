@@ -15,6 +15,7 @@ import com.teambind.image_server.util.validator.ExtensionValidator;
 import com.teambind.image_server.util.validator.ReferenceTypeValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -23,6 +24,7 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class ImageSaveService {
 	private final ExtensionValidator extensionValidator;
 	private final UrlHelper urlHelper;
