@@ -14,7 +14,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/enums")
-public class enumsController {
+public class EnumsController {
 	@GetMapping("/extensions")
 	
 	public ResponseEntity<Map<String, Extension>> getEnums() {

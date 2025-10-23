@@ -39,7 +39,7 @@ public class Image {
 	private String uploaderId;
 	
 	@Column(name = "is_deleted", nullable = false)
-	private boolean idDeleted;
+	private boolean isDeleted;
 	
 	@OneToOne(mappedBy = "image", cascade = CascadeType.ALL, orphanRemoval = true)
 	private StorageObject storageObject;
