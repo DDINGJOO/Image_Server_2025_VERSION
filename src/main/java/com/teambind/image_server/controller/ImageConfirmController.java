@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
  * - 모든 검증은 Controller 레이어에서 @Valid/@Validated를 통해 수행
  */
 @RestController
-@RequestMapping("/api/images")
+@RequestMapping("/apiv/1/images")
 @RequiredArgsConstructor
 @Validated
 public class ImageConfirmController {
@@ -48,7 +48,7 @@ public class ImageConfirmController {
 	 * @param request 배치 확정 요청 (imageIds, referenceId)
 	 * @return 200 OK
 	 */
-	@PostMapping("/confirm/batch")
+	@PostMapping("/confirm")
 	public ResponseEntity<Void> confirmImages(@Valid @RequestBody ImageBatchConfirmRequest request) {
 		imageConfirmService.confirmImages(request.getImageIds(), request.getReferenceId());
 		return ResponseEntity.ok().build();
