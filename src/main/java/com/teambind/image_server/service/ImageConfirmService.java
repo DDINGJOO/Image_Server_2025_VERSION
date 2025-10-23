@@ -23,6 +23,12 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * 이미지 확정 서비스
+ * - Controller 레이어에서 @Valid/@Validated를 통해 기본 검증이 완료됨
+ * - 서비스 레이어는 비즈니스 로직에 집중 (상태 변경, 이벤트 발행)
+ * - 최소한의 방어 코드만 유지 (null 체크, 비즈니스 규칙 검증)
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -34,16 +40,19 @@ public class ImageConfirmService {
 	private final ReferenceTypeValidator referenceTypeValidator;
 	private final ApplicationEventPublisher applicationEventPublisher;
 	
+	/**
+	 * 단일 이미지 확정
+	 * - Controller에서 @Valid를 통해 imageId, referenceId 기본 검증 완료
+	 * - 빈 문자열("")은 전체 삭제를 의미 (비즈니스 규칙)
+	 */
 	public void confirmImage(String imageId, String referenceId) {
-		if (imageId == null) {
-			throw new CustomException(ErrorCode.IMAGE_NOT_FOUND);
-		}
-		
+		// 빈 문자열 = 전체 삭제 (비즈니스 규칙)
 		if (imageId.isEmpty()) {
 			List<Image> images = imageRepository.findAllByReferenceId(referenceId);
 			images.forEach(img -> img.setStatus(ImageStatus.DELETED));
 			imageRepository.saveAll(images);
 			eventPublisher.imageDeletedEvent(referenceId);
+			log.info("All images deleted for referenceId: {}", referenceId);
 			return;
 		}
 		
@@ -94,14 +103,16 @@ public class ImageConfirmService {
 	
 	/**
 	 * 다중 이미지 확정 (Public API)
+	 * - Controller에서 @Valid를 통해 imageIds, referenceId 기본 검증 완료
 	 */
 	@Transactional
 	public void confirmImages(List<String> imageIds, String referenceId) {
 		confirmImages(imageIds, referenceId, null);
 	}
-	
+
 	/**
 	 * 다중 이미지 확정 (내부 최적화 버전)
+	 * - preloadedImage를 재사용하여 불필요한 DB 조회 최소화
 	 *
 	 * @param imageIds       확정할 이미지 ID 리스트
 	 * @param referenceId    참조 ID
@@ -109,21 +120,16 @@ public class ImageConfirmService {
 	 */
 	@Transactional
 	protected void confirmImages(List<String> imageIds, String referenceId, Image preloadedImage) {
-		log.info("Confirming multiple images: referenceId={}, imageIdCount={}", referenceId, imageIds != null ? imageIds.size() : 0);
+		log.info("Confirming multiple images: referenceId={}, imageIdCount={}", referenceId, imageIds.size());
 		
-		if (imageIds == null) {
-			throw new CustomException(ErrorCode.IMAGE_NOT_FOUND);
-		}
-		
-		// 1단계: 기존 이미지들 먼저 조회 (1번 조회)
+		// 1단계: 기존 이미지들 조회
 		List<Image> existingImages = imageRepository.findAllByReferenceId(referenceId);
 		
-		// 빈 리스트 = 전체 삭제
+		// 빈 리스트 = 전체 삭제 (비즈니스 규칙)
 		if (imageIds.isEmpty()) {
 			existingImages.forEach(img -> img.setStatus(ImageStatus.DELETED));
 			imageRepository.saveAll(existingImages);
-			
-			// 도메인 이벤트 발행 (빈 리스트 - 전체 삭제)
+
 			log.info("All images deleted for referenceId: {}", referenceId);
 			applicationEventPublisher.publishEvent(
 					new ImagesConfirmedEvent(referenceId, List.of())
@@ -169,11 +175,11 @@ public class ImageConfirmService {
 			}
 		}
 		
-		// 7단계: referenceType 검증 (첫 번째 이미지로)
+		// 7단계: 비즈니스 규칙 검증 - 다중 이미지 허용 여부
 		if (!confirmedImages.isEmpty()) {
 			String referenceTypeCode = confirmedImages.get(0).getReferenceType().getCode();
 			
-			// 단일 이미지 타입이면 에러
+			// 단일 이미지 타입인데 여러 이미지를 확정하려는 경우
 			if (referenceTypeValidator.isMonoImageReferenceType(referenceTypeCode)) {
 				throw new CustomException(ErrorCode.NOT_ALLOWED_MULTIPLE_IMAGES);
 			}

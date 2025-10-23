@@ -11,8 +11,6 @@ import com.teambind.image_server.util.convertor.ImageUtil;
 import com.teambind.image_server.util.helper.ExtensionParser;
 import com.teambind.image_server.util.helper.UrlHelper;
 import com.teambind.image_server.util.store.LocalImageStorage;
-import com.teambind.image_server.util.validator.ExtensionValidator;
-import com.teambind.image_server.util.validator.ReferenceTypeValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,32 +20,45 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 
+/**
+ * 이미지 저장 서비스
+ * - Controller 레이어에서 @Valid를 통해 모든 검증이 완료됨
+ * - 서비스 레이어는 비즈니스 로직에 집중 (변환, 저장, 엔티티 생성)
+ * - 최소한의 방어 코드만 유지 (null 체크, IO 예외 처리)
+ */
+
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class ImageSaveService {
-	private final ExtensionValidator extensionValidator;
 	private final UrlHelper urlHelper;
-	private final ReferenceTypeValidator referenceTypeValidator;
 	private final ImageRepository imageRepository;
 	private final LocalImageStorage imageStorage;
 	private final ExtensionParser extensionParser;
 	
-	public Map<String, String> saveImage(MultipartFile file, String uploaderId, String category) throws CustomException {
-		if (!extensionValidator.isValid(file.getOriginalFilename())) {
-			throw new CustomException(ErrorCode.FILE_EXTENSION_NOT_FOUND);
-		}
-		if (!referenceTypeValidator.referenceTypeValidate(category)) {
-			throw new CustomException(ErrorCode.REFERENCE_TYPE_NOT_FOUND);
-		}
+	/**
+	 * 단일 이미지 저장
+	 * - Controller에서 @Valid를 통해 검증 완료된 데이터가 전달됨
+	 * - 파일 확장자, 카테고리 유효성은 이미 검증됨
+	 */
+	public Map<String, String> saveImage(MultipartFile file, String uploaderId, String category) {
 		return saveImage(file, file.getOriginalFilename(), uploaderId, category);
 	}
 	
-	private Map<String, String> saveImage(MultipartFile file, String fileName, String uploaderId, String category) throws CustomException {
-		String uuid = UUID.randomUUID().toString(); // ImageId
-		String datePath = LocalDateTime.now().toLocalDate().toString().replace("-", "/");
+	/**
+	 * 실제 이미지 저장 로직
+	 * - WebP 변환 시도 → 실패 시 원본 저장
+	 * - 최소한의 방어 코드만 유지 (null 체크, IO 예외 처리)
+	 */
+	private Map<String, String> saveImage(MultipartFile file, String fileName, String uploaderId, String category) {
+		// 방어 코드: fileName null 체크 (극히 예외적인 경우 대비)
+		if (fileName == null || fileName.isBlank()) {
+			throw new CustomException(ErrorCode.INVALID_FILE_NAME);
+		}
 		
-		// 기본값들 준비
+		String uuid = UUID.randomUUID().toString();
+		String datePath = LocalDateTime.now().toLocalDate().toString().replace("-", "/");
+
 		String originExtUpper = extensionParser.extensionParse(fileName).toUpperCase();
 		String originExtLower = originExtUpper.toLowerCase();
 		
@@ -114,7 +125,12 @@ public class ImageSaveService {
 		return Map.of("id", image.getId(), "fileName", Objects.requireNonNull(file.getOriginalFilename()));
 	}
 	
-	public Map<String, String> saveImages(List<MultipartFile> files, String uploaderId, String category) throws CustomException {
+	/**
+	 * 다중 이미지 저장
+	 * - Controller에서 @Valid를 통해 검증 완료된 데이터가 전달됨
+	 * - 파일 리스트, 확장자, 카테고리 유효성은 이미 검증됨
+	 */
+	public Map<String, String> saveImages(List<MultipartFile> files, String uploaderId, String category) {
 		Map<String, String> responses = new HashMap<>();
 		for (MultipartFile file : files) {
 			Map<String, String> result = saveImage(file, uploaderId, category);
