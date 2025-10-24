@@ -47,13 +47,19 @@ public class ImageSequenceEventHandler {
 	public void handleImagesConfirmed(ImagesConfirmedEvent event) {
 		log.info("Handling ImagesConfirmedEvent: referenceId={}, imageCount={}",
 				event.getReferenceId(), event.getImageCount());
-		
+
 		try {
 			// 1. 이미지가 없는 경우 (전체 삭제)
 			if (event.isEmpty()) {
 				log.info("No images in event, deleting all sequences for referenceId: {}",
 						event.getReferenceId());
 				imageSequenceService.deleteSequences(event.getReferenceId());
+				
+				// 전체 삭제 이벤트 발행 (빈 배열)
+				if (event.getReferenceTypeCode() != null) {
+					eventPublisher.imagesDeletedEvent(event.getReferenceId(), event.getReferenceTypeCode());
+					log.info("Published empty array deletion event for referenceId: {}", event.getReferenceId());
+				}
 				return;
 			}
 			

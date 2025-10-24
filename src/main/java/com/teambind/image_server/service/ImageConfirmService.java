@@ -127,12 +127,18 @@ public class ImageConfirmService {
 		
 		// 빈 리스트 = 전체 삭제 (비즈니스 규칙)
 		if (imageIds.isEmpty()) {
+			// ReferenceType 정보 추출 (기존 이미지가 있으면 그것에서, 없으면 referenceId로 조회)
+			String referenceTypeCode = null;
+			if (!existingImages.isEmpty()) {
+				referenceTypeCode = existingImages.get(0).getReferenceType().getCode();
+			}
+
 			existingImages.forEach(img -> img.setStatus(ImageStatus.DELETED));
 			imageRepository.saveAll(existingImages);
 
 			log.info("All images deleted for referenceId: {}", referenceId);
 			applicationEventPublisher.publishEvent(
-					new ImagesConfirmedEvent(referenceId, List.of())
+					new ImagesConfirmedEvent(referenceId, List.of(), referenceTypeCode)
 			);
 			return;
 		}
@@ -208,10 +214,14 @@ public class ImageConfirmService {
 		}
 		
 		// 12단계: 도메인 이벤트 발행 (ImageSequence 생성 및 외부 이벤트 발행을 트리거)
+		String referenceTypeCode = !confirmedImages.isEmpty()
+				? confirmedImages.get(0).getReferenceType().getCode()
+				: null;
+
 		log.info("Publishing ImagesConfirmedEvent for referenceId: {}, imageCount: {}",
 				referenceId, confirmedImages.size());
 		applicationEventPublisher.publishEvent(
-				new ImagesConfirmedEvent(referenceId, confirmedImages)
+				new ImagesConfirmedEvent(referenceId, confirmedImages, referenceTypeCode)
 		);
 	}
 }

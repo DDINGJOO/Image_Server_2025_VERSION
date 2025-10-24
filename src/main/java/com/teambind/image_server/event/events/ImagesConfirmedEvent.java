@@ -19,7 +19,7 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 public class ImagesConfirmedEvent {
-	
+
 	/**
 	 * 참조 ID (상품 ID, 게시글 ID 등)
 	 */
@@ -29,6 +29,12 @@ public class ImagesConfirmedEvent {
 	 * 확정된 이미지 리스트 (순서대로 정렬됨)
 	 */
 	private final List<Image> confirmedImages;
+	
+	/**
+	 * 참조 타입 코드 (PRODUCT, USER, POST 등)
+	 * 전체 삭제 시 토픽 결정에 필요
+	 */
+	private final String referenceTypeCode;
 	
 	/**
 	 * 확정된 이미지 개수

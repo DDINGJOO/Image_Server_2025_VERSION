@@ -13,7 +13,7 @@ import java.util.Map;
 
 
 @RestController
-@RequestMapping("/api/enums")
+@RequestMapping("/api")
 public class EnumsController {
 	@GetMapping("/extensions")
 	
