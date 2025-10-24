@@ -29,7 +29,12 @@ public enum ErrorCode {
 	IMAGE_ALREADY_CONFIRMED("IMAGE_ALREADY_CONFIRMED", "Image Already Confirmed", HttpStatus.BAD_REQUEST),
 	IMAGE_COUNT_EXCEEDED("IMAGE_COUNT_EXCEEDED", "Image Count Exceeded", HttpStatus.BAD_REQUEST),
 	NOT_ALLOWED_MULTIPLE_IMAGES("NOT_ALLOWED_MULTIPLE_IMAGES", "Not Allowed Multiple Images", HttpStatus.BAD_REQUEST),
-	INVALID_FILE_NAME("INVALID_FILE_NAME", "Invalid File Name", HttpStatus.BAD_REQUEST), INVALID_FILE_EXTENSION("INVALID_FILE_EXTENSION", "Invalid File Extension", HttpStatus.BAD_REQUEST)
+	INVALID_FILE_NAME("INVALID_FILE_NAME", "Invalid File Name", HttpStatus.BAD_REQUEST),
+	INVALID_FILE_EXTENSION("INVALID_FILE_EXTENSION", "Invalid File Extension", HttpStatus.BAD_REQUEST),
+	
+	// 비동기 처리 관련
+	IMAGE_PROCESSING_IN_PROGRESS("IMAGE_PROCESSING_IN_PROGRESS", "Image is still being processed. Please try again later.", HttpStatus.CONFLICT),
+	IMAGE_PROCESSING_FAILED("IMAGE_PROCESSING_FAILED", "Image processing failed. Please upload again.", HttpStatus.INTERNAL_SERVER_ERROR)
 	;
 	
 	
