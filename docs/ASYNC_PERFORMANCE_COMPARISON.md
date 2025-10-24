@@ -10,9 +10,9 @@ Image Server의 이미지 처리 방식을 동기(Synchronous)에서 비동기(A
 
 ### 하드웨어
 
-- CPU: (테스트 환경에 맞게 기재)
-- RAM: (테스트 환경에 맞게 기재)
-- Storage: SSD
+- MACBook Pro M4
+	- 32 GB RAM
+	- 1TB SSD
 
 ### 소프트웨어
 
