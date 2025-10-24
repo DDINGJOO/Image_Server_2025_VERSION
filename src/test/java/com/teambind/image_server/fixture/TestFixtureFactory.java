@@ -155,6 +155,10 @@ public class TestFixtureFactory {
 	public static Image createTempImage(String id) {
 		return createImage(id, ImageStatus.TEMP, null, null);
 	}
+	
+	public static Image createReadyImage(String id) {
+		return createImage(id, ImageStatus.READY, null, null);
+	}
 
 	public static Image createDeletedImage(String id) {
 		return createImage(id, ImageStatus.DELETED, null, null);

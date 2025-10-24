@@ -55,12 +55,25 @@ public class ImageConfirmService {
 			log.info("All images deleted for referenceId: {}", referenceId);
 			return;
 		}
-		
+
 		// 이미지 조회 (1번 조회)
 		Image newImage = imageRepository.findById(imageId)
 				.orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
 		
+		// ⭐ 비동기 처리 상태 체크 (가장 먼저!)
+		if (newImage.getStatus() == ImageStatus.FAILED) {
+			// 변환 실패: oldImage는 건드리지 않음 (그대로 유지)
+			// newImage는 나중에 스케줄러가 정리
+			log.error("Image processing failed: imageId={}", imageId);
+			throw new CustomException(ErrorCode.IMAGE_PROCESSING_FAILED);
+		}
 		
+		if (newImage.getStatus() == ImageStatus.TEMP) {
+			// 아직 변환 중: 잠시 후 재시도 필요
+			log.warn("Image still processing: imageId={}", imageId);
+			throw new CustomException(ErrorCode.IMAGE_PROCESSING_IN_PROGRESS);
+		}
+
 		// 다중 이미지 타입이면 confirmImages()로 위임 (조회한 이미지 재사용)
 		if (referenceTypeValidator.isMultiImageReferenceType(newImage.getReferenceType().getCode())) {
 			List<String> imageIds = List.of(imageId);

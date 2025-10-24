@@ -58,7 +58,7 @@ class ImageConfirmServiceTest {
 		// given
 		String imageId = "image-123";
 		String referenceId = "ref-456";
-		Image image = TestFixtureFactory.createTempImage(imageId);
+		Image image = TestFixtureFactory.createReadyImage(imageId);
 		image.setReferenceType(TestFixtureFactory.createProfileReferenceType());
 
 		when(imageRepository.findById(imageId)).thenReturn(Optional.of(image));
@@ -81,8 +81,8 @@ class ImageConfirmServiceTest {
 		String newImageId = "new-image";
 		String oldImageId = "old-image";
 		String referenceId = "ref-456";
-
-		Image newImage = TestFixtureFactory.createTempImage(newImageId);
+		
+		Image newImage = TestFixtureFactory.createReadyImage(newImageId);
 		newImage.setReferenceType(TestFixtureFactory.createProfileReferenceType());
 
 		Image oldImage = TestFixtureFactory.createConfirmedImage(oldImageId, referenceId,
@@ -166,9 +166,9 @@ class ImageConfirmServiceTest {
 		List<String> imageIds = List.of("img1", "img2", "img3");
 		String referenceId = "ref-456";
 		List<Image> images = List.of(
-				TestFixtureFactory.createTempImage("img1"),
-				TestFixtureFactory.createTempImage("img2"),
-				TestFixtureFactory.createTempImage("img3")
+				TestFixtureFactory.createReadyImage("img1"),
+				TestFixtureFactory.createReadyImage("img2"),
+				TestFixtureFactory.createReadyImage("img3")
 		);
 		images.forEach(img -> img.setReferenceType(TestFixtureFactory.createGalleryReferenceType()));
 
@@ -212,8 +212,8 @@ class ImageConfirmServiceTest {
 		List<String> imageIds = List.of("img1", "img2");
 		String referenceId = "ref-456";
 		List<Image> images = List.of(
-				TestFixtureFactory.createTempImage("img1"),
-				TestFixtureFactory.createTempImage("img2")
+				TestFixtureFactory.createReadyImage("img1"),
+				TestFixtureFactory.createReadyImage("img2")
 		);
 		images.forEach(img -> img.setReferenceType(TestFixtureFactory.createProfileReferenceType()));
 
@@ -236,7 +236,7 @@ class ImageConfirmServiceTest {
 
 		Image img1 = TestFixtureFactory.createConfirmedImage("img1", referenceId, TestFixtureFactory.createGalleryReferenceType());
 		Image img2 = TestFixtureFactory.createConfirmedImage("img2", referenceId, TestFixtureFactory.createGalleryReferenceType());
-		Image img3 = TestFixtureFactory.createTempImage("img3");
+		Image img3 = TestFixtureFactory.createReadyImage("img3");
 		img3.setReferenceType(TestFixtureFactory.createGalleryReferenceType());
 
 		when(imageRepository.findAllByReferenceId(referenceId)).thenReturn(List.of(img1, img2));

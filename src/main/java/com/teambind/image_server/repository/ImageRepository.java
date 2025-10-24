@@ -7,6 +7,7 @@ import com.teambind.image_server.enums.ImageStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -18,6 +19,9 @@ public interface ImageRepository extends JpaRepository<Image, String> {
 	List<Image> findAllByReferenceId(String referenceId);
 	
 	List<Image> findAllByIdIn(List<String> imageIds);
-	
+
 	void deleteAllByReferenceId(String referenceId);
+	
+	// 비동기 처리 관련
+	List<Image> findByStatusAndCreatedAtBefore(ImageStatus status, LocalDateTime threshold);
 }

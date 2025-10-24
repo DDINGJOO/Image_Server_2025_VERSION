@@ -48,7 +48,7 @@ class ImageConfirmControllerTest {
 	@DisplayName("정상 케이스: 단일 이미지 확정 성공")
 	void confirmImage_validRequest_success() throws Exception {
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/ref-456")
+		mockMvc.perform(post("/api/v1/images/confirm/ref-456")
 						.param("imageId", "image-123"))
 				.andExpect(status().isOk());
 
@@ -59,7 +59,7 @@ class ImageConfirmControllerTest {
 	@DisplayName("imageId가 없으면 400 에러")
 	void confirmImage_missingImageId_badRequest() throws Exception {
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/ref-456"))
+		mockMvc.perform(post("/api/v1/images/confirm/ref-456"))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -67,7 +67,7 @@ class ImageConfirmControllerTest {
 	@DisplayName("imageId가 빈 문자열이면 400 에러")
 	void confirmImage_blankImageId_badRequest() throws Exception {
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/ref-456")
+		mockMvc.perform(post("/api/v1/images/confirm/ref-456")
 						.param("imageId", "  "))
 				.andExpect(status().is5xxServerError()); // @NotBlank validation error
 	}
@@ -83,7 +83,7 @@ class ImageConfirmControllerTest {
 		request.setReferenceId("ref-456");
 
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/batch")
+		mockMvc.perform(post("/api/v1/images/confirm")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk());
@@ -99,7 +99,7 @@ class ImageConfirmControllerTest {
 		request.setReferenceId("ref-456");
 
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/batch")
+		mockMvc.perform(post("/api/v1/images/confirm")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest());
@@ -113,7 +113,7 @@ class ImageConfirmControllerTest {
 		request.setImageIds(List.of("img1", "img2"));
 
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/batch")
+		mockMvc.perform(post("/api/v1/images/confirm")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest());
@@ -128,7 +128,7 @@ class ImageConfirmControllerTest {
 		request.setReferenceId("ref-456");
 
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/batch")
+		mockMvc.perform(post("/api/v1/images/confirm")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk());
@@ -145,7 +145,7 @@ class ImageConfirmControllerTest {
 		request.setReferenceId("  ");
 
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/batch")
+		mockMvc.perform(post("/api/v1/images/confirm")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest());
@@ -161,7 +161,7 @@ class ImageConfirmControllerTest {
 		request.setReferenceId("ref-456");
 
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/batch")
+		mockMvc.perform(post("/api/v1/images/confirm")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk());
@@ -176,7 +176,7 @@ class ImageConfirmControllerTest {
 		String invalidJson = "{\"imageIds\": [\"img1\"], \"referenceId\":}";
 
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/batch")
+		mockMvc.perform(post("/api/v1/images/confirm")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(invalidJson))
 				.andExpect(status().isBadRequest());
@@ -191,7 +191,7 @@ class ImageConfirmControllerTest {
 		request.setReferenceId("ref-456");
 
 		// when & then
-		mockMvc.perform(post("/api/images/confirm/batch")
+		mockMvc.perform(post("/api/v1/images/confirm")
 						.contentType(MediaType.TEXT_PLAIN)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isUnsupportedMediaType());
