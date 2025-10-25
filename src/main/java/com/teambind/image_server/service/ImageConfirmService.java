@@ -60,7 +60,7 @@ public class ImageConfirmService {
 		Image newImage = imageRepository.findById(imageId)
 				.orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
 		
-		// ⭐ 비동기 처리 상태 체크 (가장 먼저!)
+		//  비동기 처리 상태 체크 (가장 먼저!)
 		if (newImage.getStatus() == ImageStatus.FAILED) {
 			// 변환 실패: oldImage는 건드리지 않음 (그대로 유지)
 			// newImage는 나중에 스케줄러가 정리

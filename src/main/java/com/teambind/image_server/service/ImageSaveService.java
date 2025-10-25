@@ -107,7 +107,7 @@ public class ImageSaveService {
 				.id(uuid)
 				.createdAt(LocalDateTime.now())
 				.isDeleted(false)
-				.status(ImageStatus.TEMP)
+				.status(ImageStatus.READY)  // 동기 메서드는 처리 완료 후 즉시 READY
 				.referenceType(InitialSetup.ALL_REFERENCE_TYPE_MAP.get(category.toUpperCase()))
 				.imageUrl(urlHelper.getUrl(storedPath))
 				.uploaderId(uploaderId)
