@@ -1,0 +1,47 @@
+# 로컬 테스트용 docker-compose 파일
+# 사용법: docker-compose -f docker-compose-local.yml up
+version: "3.7"
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-image-local
+    ports:
+      - "9200:80"
+    volumes:
+      - ./nginx/conf:/etc/nginx/conf.d:ro
+      - ./nginx/logs:/var/log/nginx
+      - images-data-local:/usr/share/nginx/images:ro
+    depends_on:
+      - image-server-local
+    networks:
+      - image-network-local
+    restart: unless-stopped
+
+  image-server-local:
+    image: ddingsh9/image-server:local
+    env_file:
+      - .env
+    container_name: image-server-local
+    ports:
+      - "8080:8080"  # 로컬 테스트를 위해 직접 포트 노출
+    restart: unless-stopped
+    networks:
+      - image-network-local
+    volumes:
+      - images-data-local:/uploads
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+networks:
+  image-network-local:
+    driver: bridge
+
+volumes:
+  images-data-local:
+    driver: local
