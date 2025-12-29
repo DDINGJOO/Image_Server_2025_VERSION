@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -38,6 +39,7 @@ public interface ImageSequenceRepository extends JpaRepository<ImageSequence, Lo
 	 * @param referenceId 참조 ID
 	 */
 	@Modifying
+	@Transactional
 	@Query("DELETE FROM ImageSequence s WHERE s.referenceId = :referenceId")
 	void deleteByReferenceId(@Param("referenceId") String referenceId);
 	

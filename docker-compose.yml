@@ -8,19 +8,16 @@ services:
     ports:
       - "9200:80"
     volumes:
-      - ./nginx/conf:/etc/nginx/conf.d
+      - ./nginx/conf:/etc/nginx/conf.d:ro
       - ./nginx/logs:/var/log/nginx
       - images-data:/usr/share/nginx/images:ro
-    command: [
-      "sh", "-c",
-      "printf 'upstream profile_upstream {\n    server image-server-1:8080;\n    server image-server-2:8080;\n    server image-server-3:8080;\n}\n\nserver {\n    listen 80;\n    location / {\n        proxy_pass http://profile_upstream;\n        proxy_set_header Host $$host;\n        proxy_set_header X-Real-IP $$remote_addr;\n        proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $$scheme;\n    }\n}\n' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
-    ]
     depends_on:
       - image-server-1
       - image-server-2
       - image-server-3
     networks:
       - image-network
+    restart: unless-stopped
 
 
 
@@ -29,7 +26,7 @@ services:
 
   # auth-server 인스턴스들을 개별 서비스로 정의 (Compose는 deploy.replicas를 적용하지 않으므로 이렇게 복수 서비스로 표현)
   image-server-1:
-    image: ddingsh9/image-server:1.9.1
+    image: ddingsh9/image-server:2.0.0.7
     env_file:
       - .env.prod
     container_name: image-server-1
@@ -45,7 +42,7 @@ services:
         max-size: "50m"
         max-file: "3"
   image-server-2:
-    image: ddingsh9/image-server:1.9.1
+    image: ddingsh9/image-server:2.0.0.7
     env_file:
       - .env.prod
     container_name: image-server-2
@@ -68,7 +65,7 @@ services:
       retries: 3
 
   image-server-3:
-    image: ddingsh9/image-server:1.9.1
+    image: ddingsh9/image-server:2.0.0.7
     env_file:
       - .env.prod
     container_name: image-server-3
@@ -118,3 +115,4 @@ volumes:
   images-data:
     driver: local
     name: images-data
+

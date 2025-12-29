@@ -7,6 +7,7 @@ import com.teambind.image_server.repository.ImageSequenceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -30,6 +31,9 @@ public class ImageSequenceService {
 	/**
 	 * 기존 시퀀스를 삭제하고 새로운 시퀀스를 생성합니다.
 	 * <p>
+	 * REQUIRES_NEW로 새로운 트랜잭션을 시작하여 실행됩니다.
+	 * 이는 TransactionalEventListener의 AFTER_COMMIT 단계에서도 정상 동작하도록 합니다.
+	 * <p>
 	 * 트랜잭션 내에서 실행되며, 다음 단계로 진행됩니다:
 	 * 1. 기존 referenceId의 모든 시퀀스 삭제
 	 * 2. 새로운 이미지 리스트로 시퀀스 생성 (순서는 리스트 순서 그대로)
@@ -39,7 +43,7 @@ public class ImageSequenceService {
 	 * @param images      확정된 이미지 리스트 (순서대로)
 	 * @return 생성된 ImageSequence 리스트
 	 */
-	@Transactional
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public List<ImageSequence> recreateSequences(String referenceId, List<Image> images) {
 		log.info("Recreating image sequences for referenceId: {}, imageCount: {}", referenceId, images.size());
 		
@@ -85,10 +89,13 @@ public class ImageSequenceService {
 	
 	/**
 	 * 특정 referenceId의 모든 시퀀스를 삭제합니다.
+	 * <p>
+	 * REQUIRES_NEW로 새로운 트랜잭션을 시작하여 실행됩니다.
+	 * 이는 TransactionalEventListener의 AFTER_COMMIT 단계에서도 정상 동작하도록 합니다.
 	 *
 	 * @param referenceId 참조 ID
 	 */
-	@Transactional
+	@Transactional(propagation = Propagation.REQUIRES_NEW)
 	public void deleteSequences(String referenceId) {
 		log.info("Deleting all sequences for referenceId: {}", referenceId);
 		imageSequenceRepository.deleteByReferenceId(referenceId);

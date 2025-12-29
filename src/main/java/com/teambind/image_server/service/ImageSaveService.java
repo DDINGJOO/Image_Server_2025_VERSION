@@ -132,11 +132,11 @@ public class ImageSaveService {
 	 * - Controller에서 @Valid를 통해 검증 완료된 데이터가 전달됨
 	 * - 파일 리스트, 확장자, 카테고리 유효성은 이미 검증됨
 	 */
-	public Map<String, String> saveImages(List<MultipartFile> files, String uploaderId, String category) {
-		Map<String, String> responses = new HashMap<>();
+	public List<Map<String, String>> saveImages(List<MultipartFile> files, String uploaderId, String category) {
+		List<Map<String, String>> responses = new ArrayList<>();
 		for (MultipartFile file : files) {
 			Map<String, String> result = saveImage(file, uploaderId, category);
-			responses.put(result.get("id"), result.get("fileName"));
+			responses.add(result);  // 전체 결과를 그대로 추가
 		}
 		return responses;
 	}
@@ -156,33 +156,25 @@ public class ImageSaveService {
 	 * @param category   카테고리
 	 * @return imageId, imageUrl, status
 	 */
-	@Transactional
 	public Map<String, String> saveImageAsync(MultipartFile file, String uploaderId, String category) {
 		String fileName = file.getOriginalFilename();
 		if (fileName == null || fileName.isBlank()) {
 			throw new CustomException(ErrorCode.INVALID_FILE_NAME);
 		}
-		
+
 		// 1. 메타데이터 미리 생성
 		String uuid = UUID.randomUUID().toString();
 		String datePath = LocalDateTime.now().toLocalDate().toString().replace("-", "/");
 		String originExtUpper = extensionParser.extensionParse(fileName).toUpperCase();
 		String webpFileName = uuid + ".webp";
-		String storedPath = category.toUpperCase() + "/" + datePath + "/" + webpFileName;
+		String categoryUpper = category.toUpperCase();  // 대문자 변환!
+		String storedPath = categoryUpper + "/" + datePath + "/" + webpFileName;
 		String imageUrl = urlHelper.getUrl(storedPath);
 		
-		// 2. DB에 먼저 저장 (status: TEMP - 변환 대기 중)
-		Image image = Image.builder()
-				.id(uuid)
-				.uploaderId(uploaderId)
-				.referenceType(InitialSetup.ALL_REFERENCE_TYPE_MAP.get(category))
-				.status(ImageStatus.TEMP)  // ⭐ 변환 대기 중
-				.imageUrl(imageUrl)
-				.build();
+		// 2. DB에 먼저 저장하고 즉시 커밋 (별도 트랜잭션)
+		saveImageMetadata(uuid, uploaderId, categoryUpper, imageUrl);
 		
-		imageRepository.save(image);
-		
-		// 3. 백그라운드 Task Queue에 등록
+		// 3. 백그라운드 Task Queue에 등록 (DB 커밋 후!)
 		ImageProcessingTask task = new ImageProcessingTask(
 				uuid,
 				file,
@@ -190,7 +182,7 @@ public class ImageSaveService {
 				originExtUpper
 		);
 		taskQueue.submit(task);
-		
+
 		// 4. 즉시 응답 (클라이언트는 폼 작성 계속)
 		return Map.of(
 				"id", uuid,
@@ -200,19 +192,35 @@ public class ImageSaveService {
 	}
 	
 	/**
+	 * 이미지 메타데이터 저장 (별도 트랜잭션)
+	 * - 비동기 작업 전에 커밋되어야 함
+	 */
+	@Transactional
+	protected void saveImageMetadata(String uuid, String uploaderId, String categoryUpper, String imageUrl) {
+		Image image = Image.builder()
+				.id(uuid)
+				.uploaderId(uploaderId)
+				.referenceType(InitialSetup.ALL_REFERENCE_TYPE_MAP.get(categoryUpper))
+				.status(ImageStatus.TEMP)
+				.imageUrl(imageUrl)
+				.build();
+		
+		imageRepository.save(image);
+	}
+	
+	/**
 	 * 다중 이미지 저장 (비동기)
 	 *
 	 * @param files      업로드된 파일 리스트
 	 * @param uploaderId 업로더 ID
 	 * @param category   카테고리
-	 * @return imageId -> status 맵
+	 * @return 각 이미지의 상세 정보가 담긴 리스트 (id, imageUrl, status)
 	 */
-	@Transactional
-	public Map<String, String> saveImagesAsync(List<MultipartFile> files, String uploaderId, String category) {
-		Map<String, String> responses = new HashMap<>();
+	public List<Map<String, String>> saveImagesAsync(List<MultipartFile> files, String uploaderId, String category) {
+		List<Map<String, String>> responses = new ArrayList<>();
 		for (MultipartFile file : files) {
 			Map<String, String> result = saveImageAsync(file, uploaderId, category);
-			responses.put(result.get("id"), result.get("status"));
+			responses.add(result);  // 전체 결과를 그대로 추가
 		}
 		return responses;
 	}

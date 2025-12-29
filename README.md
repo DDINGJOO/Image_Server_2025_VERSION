@@ -1,516 +1,540 @@
-# Image Server
+# Image-Server 가이드 문서
 
-이미지 업로드, 처리, 확정 워크플로우를 관리하는 Spring Boot 마이크로서비스입니다.
+## 1. 개요
 
-## 목차
+### 1.1 목적
 
-1. [프로젝트 개요](#프로젝트-개요)
-2. [주요 기능](#주요-기능)
-3. [아키텍처](#아키텍처)
-4. [데이터베이스 스키마](#데이터베이스-스키마)
-5. [API 엔드포인트](#api-엔드포인트)
-6. [기술 스택](#기술-스택)
-7. [테스트](#테스트)
-8. [성능](#성능)
-9. [설정 및 실행](#설정-및-실행)
-10. [배포](#배포)
+Image-Server는 플랫폼 내 이미지 업로드, 처리, 확정 워크플로우를 담당하는 마이크로서비스이다.
 
----
+### 1.2 주요 기능
 
-## 프로젝트 개요
+| 기능        | 설명                                  |
+|-----------|-------------------------------------|
+| 이미지 업로드   | 단일/다중 이미지 업로드 (동기/비동기)              |
+| WebP 변환   | 자동 WebP 포맷 변환 (80% 품질)              |
+| 이미지 확정    | TEMP → READY → CONFIRMED 상태 전환      |
+| 이미지 순서 관리 | ImageSequence를 통한 다중 이미지 순서 관리      |
+| 도메인 이벤트   | 이미지 확정 시 Kafka 이벤트 발행               |
+| 참조 타입 관리  | PRODUCT, POST, PROFILE 등 유형별 이미지 규칙 |
+| 스케줄링      | 임시/실패 이미지 자동 정리                     |
 
-### 기본 정보
+### 1.3 기술 스택
 
-- **프로젝트명**: Image Server
-- **타입**: Spring Boot REST API 마이크로서비스
-- **Java**: 21
-- **빌드**: Gradle 8.x
-- **버전**: 2.0.1
-
-### 핵심 목적
-
-마이크로서비스 아키텍처 환경에서 이미지 라이프사이클을 전담 관리하는 서버입니다.
-
-- 임시 업로드 → 확정 → 이벤트 발행의 워크플로우 제공
-- 다중/단일 이미지 타입 지원
-- 이미지 순서 관리 (ImageSequence)
-- WebP 변환 및 최적화
-- 비동기 Task Queue 기반 대량 이미지 처리
+| 구분               | 기술                         |
+|------------------|----------------------------|
+| Framework        | Spring Boot 3.5.5          |
+| Language         | Java 21 (Eclipse Temurin)  |
+| Database         | MariaDB 11.x               |
+| Message Broker   | Apache Kafka               |
+| Image Processing | Scrimage 4.0.32 + libwebp7 |
+| Async Processing | ThreadPoolTaskExecutor     |
+| Documentation    | Swagger/OpenAPI 3.0        |
 
 ---
 
-## 주요 기능
+## 2. 시스템 아키텍처
 
-### 1. 이미지 업로드 및 저장
+### 2.1 전체 구조
 
-#### 동기 방식 (기본)
-- MultipartFile 업로드 (단일/배치)
-- WebP 자동 변환 (80% 품질)
-- 폴백 메커니즘 (변환 실패 시 원본 저장)
-- 카테고리별 디렉토리 구조 (`/uploads/{CATEGORY}/{YYYY}/{MM}/{DD}/`)
-- 즉시 처리 및 응답 반환
+```mermaid
+flowchart TB
+   subgraph Client
+      APP[Mobile App]
+      WEB[Web Client]
+   end
 
-#### 비동기 방식 (v2.0.1 신규)
+   subgraph Load_Balancer
+      NGINX[Nginx :9200]
+   end
 
-- Task Queue 기반 이미지 처리
-- TEMP 상태로 즉시 응답 (빠른 응답 속도)
-- 백그라운드에서 WebP 변환 및 READY 상태 전환
-- 스레드 풀 고갈 방지 (최대 500개 큐잉)
-- **성능**: 동기 방식 대비 약 7배 빠른 처리량 (208 vs 28 개/초)
+   subgraph Image_Service
+      IMG1[Image Server #1]
+      IMG2[Image Server #2]
+      IMG3[Image Server #3]
+   end
 
-### 2. 이미지 확정 워크플로우
+   subgraph Data_Layer
+      MARIA[(MariaDB)]
+      STORAGE[(File Storage)]
+   end
 
-- TEMP → READY → CONFIRMED 상태 전환
-- 단일 이미지 타입 (PROFILE, CATEGORY): 기존 이미지 자동 교체
-- 다중 이미지 타입 (PRODUCT, POST): ImageSequence 자동 생성
-- 상태 변경 이력 추적 (StatusHistory)
+   subgraph Messaging
+      KAFKA[Kafka Cluster]
+   end
 
-### 3. 도메인 이벤트 패턴
+   subgraph Downstream_Services
+      PRODUCT[Product Server]
+      POST[Post Server]
+      PROFILE[Profile Server]
+   end
 
-- 이미지 확정 시 도메인 이벤트 발행 (ImagesConfirmedEvent)
-- `@TransactionalEventListener(AFTER_COMMIT)` 적용 (v2.0.1 개선)
-- 트랜잭션 커밋 후 이벤트 발행으로 데이터 정합성 보장
-- ImageSequence 자동 생성 및 외부 이벤트 발행
-- 이벤트 처리 실패 시 전체 롤백
-
-### 4. 이벤트 기반 통합
-
-- Kafka 통합 (이미지 변경 이벤트 발행)
-- 토픽: `{reference-type}-image-changed`
-- 하위 서비스로 이미지 URL 전파
-- 재시도 로직 (최대 3회, 지수 백오프)
-- 발행 실패 시 로깅 및 알림
-
-### 5. 스케줄링
-
-#### 임시 이미지 정리 스케줄러
-- 만료된 임시 이미지 자동 정리 (매일 오전 3:30)
-- ShedLock 분산 락 (다중 인스턴스 환경)
-- 2일 이상 TEMP 상태 이미지 삭제
-
-#### 실패 이미지 정리 스케줄러 (v2.0.1 신규)
-
-- 매일 새벽 3시, 오전 9시 실행
-- FAILED 상태 7일 이상 이미지 삭제
-- TEMP 상태 24시간 이상 이미지 삭제
-- 스토리지 공간 최적화
-
-### 6. 성능 최적화
-
-- DB 조회 최적화 (최대 50% 감소)
-- preloadedImage 재사용 패턴
-- 인메모리 캐시 (Extension, ReferenceType)
-- 배치 처리 지원
-- 비동기 Task Queue (ThreadPoolTaskExecutor)
-	- Core Pool Size: 10
-	- Max Pool Size: 20
-	- Queue Capacity: 500
-
----
-
-## 아키텍처
-
-### 계층 구조
-
-```
-┌─────────────────────────────────────────┐
-│         Controller Layer                │
-│  (ImageSaveController, ImageConfirm...)  │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│         Service Layer                   │
-│  (ImageSaveService, ImageConfirm...)     │
-│  (ImageSequenceService)                  │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│    Async Task Queue (v2.0.1)            │
-│  (ThreadPoolTaskExecutor)                │
-│  - Image Processing                      │
-│  - WebP Conversion                       │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│      Event Layer (도메인 이벤트)          │
-│  (ImagesConfirmedEvent)                  │
-│  (ImageSequenceEventHandler)             │
-│  @TransactionalEventListener             │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│      Repository Layer (JPA)             │
-│  (ImageRepository, ImageSequence...)     │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│         Entity Layer                    │
-│  (Image, ImageSequence, StorageObject)   │
-└─────────────────────────────────────────┘
+   APP --> NGINX
+   WEB --> NGINX
+   NGINX --> IMG1
+   NGINX --> IMG2
+   NGINX --> IMG3
+   IMG1 --> MARIA
+   IMG1 --> STORAGE
+   IMG1 --> KAFKA
+   KAFKA --> PRODUCT
+   KAFKA --> POST
+   KAFKA --> PROFILE
 ```
 
-### 디자인 패턴
+### 2.2 레이어 아키텍처
 
-#### 1. 도메인 이벤트 패턴
+```mermaid
+flowchart TB
+   subgraph Presentation["Presentation Layer"]
+      CTRL[Controllers]
+      DTO[Request/Response DTOs]
+      VALID[Validators]
+   end
 
-- 이미지 확정 완료 시 ImagesConfirmedEvent 발행
-- ImageSequenceEventHandler가 이벤트 수신
-- AFTER_COMMIT 단계에서 ImageSequence 생성 및 외부 이벤트 발행
-- 트랜잭션 안전성 보장
+   subgraph Application["Application Layer"]
+      SVC[Services]
+      EVT[Event Publishers]
+      TASK[Task Queue]
+   end
 
-#### 2. 비동기 Task Queue 패턴 (v2.0.1 신규)
+   subgraph Domain["Domain Layer"]
+      ENT[Entities]
+      REPO[Repositories]
+      ENUM[Enums]
+   end
 
-- ThreadPoolTaskExecutor 기반 작업 큐
-- 즉시 응답 후 백그라운드 처리
-- 스레드 풀 고갈 방지
-- 대량 이미지 처리 최적화
+   subgraph Infrastructure["Infrastructure Layer"]
+      DB[(MariaDB)]
+      STORAGE[(File Storage)]
+      BROKER[Kafka]
+   end
 
-#### 3. 이벤트 기반 아키텍처
+   CTRL --> SVC
+   SVC --> REPO
+   SVC --> EVT
+   SVC --> TASK
+   REPO --> DB
+   EVT --> BROKER
+   TASK --> STORAGE
+```
 
-- Kafka를 통한 비동기 이벤트 발행
-- 느슨한 결합 (Loose Coupling)
-- 확장 가능한 구조
+### 2.3 이미지 업로드 흐름 (비동기)
 
-#### 4. Service Locator 패턴
+```mermaid
+sequenceDiagram
+   participant C as Client
+   participant LB as Nginx LB
+   participant IS as Image Server
+   participant DB as MariaDB
+   participant TQ as Task Queue
+   participant FS as File Storage
+   participant K as Kafka
+   C ->> LB: POST /api/images
+   LB ->> IS: 업로드 요청 전달
+   IS ->> IS: 파일 검증 (확장자, 크기)
+   IS ->> DB: Image 메타데이터 저장 (TEMP)
+   IS -->> C: imageId, imageUrl, status:PROCESSING
+   Note over IS, TQ: 비동기 처리 시작
+   IS ->> TQ: ImageProcessingTask 등록
+   TQ ->> TQ: WebP 변환 처리
+   TQ ->> FS: 파일 저장
+   TQ ->> DB: StorageObject 저장
+   TQ ->> DB: 상태 변경 (TEMP → READY)
+```
 
-- 시작 시 Extension/ReferenceType 인메모리 캐싱
-- InitialSetup 클래스를 통한 빠른 조회
+### 2.4 이미지 확정 흐름 (다중)
 
-#### 5. Strategy 패턴
+```mermaid
+sequenceDiagram
+   participant C as Client
+   participant IS as Image Server
+   participant DB as MariaDB
+   participant EH as EventHandler
+   participant K as Kafka
+   participant DS as Downstream Service
+   C ->> IS: POST /api/v1/images/confirm
+   Note over C, IS: {imageIds: [...], referenceId: "ref-123"}
+   IS ->> DB: 기존 이미지 조회
+   IS ->> DB: 새 이미지 조회
+   IS ->> IS: 비즈니스 규칙 검증
+   IS ->> DB: 이미지 상태 변경 (CONFIRMED)
+   IS ->> DB: 기존 이미지 삭제 처리 (DELETED)
+   IS ->> IS: ImagesConfirmedEvent 발행
+   Note over IS, EH: 트랜잭션 커밋 후
+   EH ->> DB: ImageSequence 재생성
+   EH ->> K: 이미지 변경 이벤트 발행
+   K ->> DS: 이벤트 전달
+```
 
-- LocalImageStorage를 통한 플러그 가능한 저장소
-- WebP 변환 실패 시 폴백 전략
+### 2.5 이미지 상태 전이
 
-#### 6. Template Method 패턴
-
-- StatusChanger를 통한 상태 전환 표준화
-- 상태 이력 자동 기록
+```mermaid
+stateDiagram-v2
+   [*] --> TEMP: 비동기 업로드
+   [*] --> READY: 동기 업로드
+   TEMP --> READY: 변환 완료
+   TEMP --> FAILED: 변환 실패
+   READY --> CONFIRMED: 이미지 확정
+   CONFIRMED --> DELETED: 이미지 교체/삭제
+   TEMP --> DELETED: 24시간 경과 (스케줄러)
+   FAILED --> [*]: 삭제 (스케줄러)
+```
 
 ---
 
-## 데이터베이스 스키마
+## 3. 데이터 모델
 
-### 핵심 엔티티
+### 3.1 ERD
 
-#### 1. reference_types (참조 타입)
+```mermaid
+erDiagram
+   ReferenceType ||--o{ Image: categorizes
+   Extension ||--o{ StorageObject: formats
+   Image ||--|| StorageObject: has
+   Image ||--o{ StatusHistory: tracks
+   Image ||--o{ ImageSequence: sequences
 
-```sql
-code
-VARCHAR
-    (32)
-    PRIMARY KEY  -- PRODUCT, POST, PROFILE 등
-name            VARCHAR(64)              -- 표시명
-allows_multiple TINYINT(1)               -- 다중 이미지 허용 여부
-max_images      INT                      -- 최대 이미지 개수
-description     VARCHAR(255) -- 설명
+   ReferenceType {
+      string code PK
+      string name
+      boolean allows_multiple
+      int max_images
+      string description
+   }
+
+   Extension {
+      string code PK
+      string name
+   }
+
+   Image {
+      string image_id PK
+      string status
+      string reference_type_id FK
+      string reference_id
+      string image_url
+      string uploader_id
+      boolean is_deleted
+      datetime created_at
+      datetime updated_at
+   }
+
+   StorageObject {
+      string image_id PK
+      string storage_location
+      bigint origin_size
+      bigint converted_size
+      string origin_format_id FK
+      string converted_format_id FK
+   }
+
+   StatusHistory {
+      bigint id PK
+      string image_id FK
+      string old_status
+      string new_status
+      datetime updated_at
+      string updated_by
+      string reason
+   }
+
+   ImageSequence {
+      bigint id PK
+      string reference_id
+      string image_id FK
+      int seq_number
+      datetime created_at
+      datetime updated_at
+   }
 ```
+
+### 3.2 테이블 상세
+
+#### reference_types (참조 타입)
+
+| 필드              | 타입           | 필수 | 설명                   |
+|-----------------|--------------|----|----------------------|
+| code            | VARCHAR(32)  | Y  | PK, 타입 코드            |
+| name            | VARCHAR(64)  | Y  | 표시명                  |
+| allows_multiple | TINYINT(1)   | Y  | 다중 이미지 허용 여부         |
+| max_images      | INT          | N  | 최대 이미지 개수 (null=무제한) |
+| description     | VARCHAR(255) | N  | 설명                   |
 
 **초기 데이터:**
 
-- PRODUCT (상품, 다중, 최대 10개)
-- POST (게시글, 다중, 최대 20개)
-- BANNER (배너, 다중, 무제한)
-- CATEGORY (카테고리, 단일, 1개)
-- PROFILE (프로필, 단일, 1개)
-- USER_BACKGROUND (배경, 단일, 1개)
+| code            | name   | allows_multiple | max_images |
+|-----------------|--------|-----------------|------------|
+| PRODUCT         | 상품     | true            | 10         |
+| POST            | 게시글    | true            | 20         |
+| BANNER          | 배너     | true            | null       |
+| CATEGORY        | 카테고리   | false           | 1          |
+| PROFILE         | 프로필    | false           | 1          |
+| USER_BACKGROUND | 사용자 배경 | false           | 1          |
 
-#### 2. extensions (확장자)
+#### extensions (확장자)
 
-```sql
-code
-VARCHAR
-    (16)
-    PRIMARY KEY  -- JPG, PNG, WEBP 등
-name VARCHAR(64) -- 표시명
-```
+| 필드   | 타입          | 필수 | 설명      |
+|------|-------------|----|---------|
+| code | VARCHAR(16) | Y  | PK, 확장자 |
+| name | VARCHAR(64) | Y  | 표시명     |
 
 **지원 형식:** JPG, JPEG, PNG, GIF, WEBP, AVIF, BMP, SVG, MP4, MOV, HEIC, HEIF
 
-#### 3. images (이미지)
+#### images (이미지)
 
+| 필드                | 타입           | 필수 | 설명                                      |
+|-------------------|--------------|----|-----------------------------------------|
+| image_id          | VARCHAR(255) | Y  | PK, UUID                                |
+| status            | ENUM         | Y  | TEMP, READY, CONFIRMED, DELETED, FAILED |
+| reference_type_id | VARCHAR(32)  | Y  | FK to reference_types.code              |
+| reference_id      | VARCHAR(200) | N  | 참조 대상 ID (확정 시 설정)                      |
+| image_url         | VARCHAR(500) | Y  | 이미지 접근 URL                              |
+| uploader_id       | VARCHAR(255) | N  | 업로더 ID                                  |
+| is_deleted        | TINYINT(1)   | Y  | 삭제 플래그                                  |
+| created_at        | DATETIME(6)  | N  | 생성 시간                                   |
+| updated_at        | DATETIME(6)  | N  | 수정 시간                                   |
+
+#### storage_objects (스토리지 정보)
+
+| 필드                  | 타입            | 필수 | 설명                    |
+|---------------------|---------------|----|-----------------------|
+| image_id            | VARCHAR(255)  | Y  | PK, FK to images      |
+| storage_location    | VARCHAR(1000) | Y  | 실제 저장 경로              |
+| origin_size         | BIGINT        | Y  | 원본 파일 크기 (bytes)      |
+| converted_size      | BIGINT        | N  | 변환 후 크기 (bytes)       |
+| origin_format_id    | VARCHAR(16)   | Y  | FK to extensions.code |
+| converted_format_id | VARCHAR(16)   | N  | FK to extensions.code |
+
+#### status_history (상태 이력)
+
+| 필드         | 타입            | 필수 | 설명                 |
+|------------|---------------|----|--------------------|
+| id         | BIGINT        | Y  | PK, Auto Increment |
+| image_id   | VARCHAR(255)  | Y  | FK to images       |
+| old_status | ENUM          | Y  | 변경 전 상태            |
+| new_status | ENUM          | Y  | 변경 후 상태            |
+| updated_at | DATETIME(6)   | Y  | 변경 시각              |
+| updated_by | VARCHAR(255)  | N  | 변경 주체              |
+| reason     | VARCHAR(1000) | N  | 변경 사유              |
+
+#### image_sequence (이미지 순서)
+
+| 필드           | 타입           | 필수 | 설명                 |
+|--------------|--------------|----|--------------------|
+| id           | BIGINT       | Y  | PK, Auto Increment |
+| reference_id | VARCHAR(255) | Y  | 참조 ID              |
+| image_id     | VARCHAR(255) | Y  | FK to images       |
+| seq_number   | INT          | Y  | 순서 번호 (0부터)        |
+| created_at   | DATETIME(6)  | Y  | 생성 시간              |
+| updated_at   | DATETIME(6)  | N  | 수정 시간              |
+
+**인덱스:**
 ```sql
-image_id
-VARCHAR
-    (255)
-    PRIMARY KEY
-status            VARCHAR(32)              -- TEMP, READY, CONFIRMED, DELETED, FAILED
-reference_type_id VARCHAR(32)              -- FK to reference_types.code
-reference_id      VARCHAR(200)             -- 참조 대상 ID
-image_url         VARCHAR(500)
-uploader_id       VARCHAR(255)
-is_deleted        TINYINT(1)
-created_at        DATETIME
-updated_at        DATETIME
-```
-
-**상태 전이 (v2.0.1):**
-
-- **TEMP**: 초기 업로드 상태
-- **READY**: WebP 변환 완료 (비동기 처리 완료)
-- **CONFIRMED**: 확정 완료
-- **DELETED**: 삭제 상태
-- **FAILED**: 처리 실패
-
-#### 4. image_sequence (이미지 순서)
-
-```sql
-id
-BIGINT AUTO_INCREMENT PRIMARY KEY  -- 신규: Auto Increment
-reference_id VARCHAR(255)                       -- 참조 ID
-image_id     VARCHAR(255)                       -- FK to images
-seq_number   INT                                -- 순서 (0부터 시작)
-created_at   DATETIME
-updated_at   DATETIME
-
--- 인덱스
 idx_reference_seq (reference_id, seq_number)
 idx_image_id (image_id)
+```
 
--- 유니크 제약
+**유니크 제약:**
+
+```sql
 uk_reference_image (reference_id, image_id)
 uk_reference_seq (reference_id, seq_number)
 ```
 
-**변경 사항 (v2.0):**
-
-- 복합키 → Auto Increment 단일키
-- reference_id 컬럼 추가
-- created_at, updated_at 추가
-
-#### 5. storage_objects (스토리지 정보)
-
-```sql
-image_id
-VARCHAR
-    (255)
-    PRIMARY KEY
-storage_location    VARCHAR(1000)
-origin_size         BIGINT
-converted_size      BIGINT
-origin_format_id    VARCHAR(16)  -- FK to extensions.code
-converted_format_id VARCHAR(16) -- FK to extensions.code
-```
-
-#### 6. status_history (상태 이력)
-
-```sql
-id
-BIGINT AUTO_INCREMENT PRIMARY KEY
-image_id   VARCHAR(255)
-old_status VARCHAR(32)
-new_status VARCHAR(32)
-updated_at DATETIME
-updated_by VARCHAR(255)
-reason     VARCHAR(1000)
-```
-
-### ERD
-
-```
-┌──────────────────┐
-│ reference_types  │
-│──────────────────│
-│ code (PK)        │───┐
-│ name             │   │
-│ allows_multiple  │   │
-│ max_images       │   │
-└──────────────────┘   │
-                       │
-┌──────────────────┐   │
-│   extensions     │   │
-│──────────────────│   │
-│ code (PK)        │──┐│
-│ name             │  ││
-└──────────────────┘  ││
-                      ││
-┌──────────────────┐  ││
-│     images       │  ││
-│──────────────────│  ││
-│ image_id (PK)    │◄─┼┘
-│ reference_type_id│◄─┘
-│ reference_id     │
-│ status           │
-└─────┬────────────┘
-      │ 1:1
-      ▼
-┌──────────────────┐
-│ storage_objects  │
-│──────────────────│
-│ image_id (PK/FK) │
-│ storage_location │
-│ origin_format_id │──┐
-│ converted_format │◄─┘
-└──────────────────┘
-
-      │ 1:N
-      ▼
-┌──────────────────┐
-│ status_history   │
-│──────────────────│
-│ id (PK)          │
-│ image_id (FK)    │
-│ old_status       │
-│ new_status       │
-└──────────────────┘
-
-      │ 1:N
-      ▼
-┌──────────────────┐
-│ image_sequence   │
-│──────────────────│
-│ id (PK)          │
-│ reference_id     │
-│ image_id (FK)    │
-│ seq_number       │
-└──────────────────┘
-```
-
 ---
 
-## API 엔드포인트
+## 4. API 명세
 
-### 이미지 업로드
+### 4.1 이미지 업로드
 
-#### POST /api/v1/images (동기 방식)
+#### 이미지 업로드 (비동기)
 
-**단일 이미지 업로드**
+```
+POST /api/images
+```
 
-```http
-Content-Type: multipart/form-data
+**Headers**
 
-Parameters:
-- file: MultipartFile (필수)
-- uploaderId: String (필수)
-- category: String (필수) - PRODUCT, POST, PROFILE 등
+| 헤더           | 필수 | 설명                  |
+|--------------|----|---------------------|
+| Content-Type | Y  | multipart/form-data |
 
-Response:
+**Request (단일)**
+
+| 필드         | 타입            | 필수 | 설명                              |
+|------------|---------------|----|---------------------------------|
+| file       | MultipartFile | Y  | 업로드할 이미지 파일                     |
+| uploaderId | String        | Y  | 업로더 ID                          |
+| category   | String        | Y  | 카테고리 (PRODUCT, POST, PROFILE 등) |
+
+**Request (다중)**
+
+| 필드         | 타입                  | 필수 | 설명              |
+|------------|---------------------|----|-----------------|
+| files      | List<MultipartFile> | Y  | 업로드할 이미지 파일 리스트 |
+| uploaderId | String              | Y  | 업로더 ID          |
+| category   | String              | Y  | 카테고리            |
+
+**Response (단일)**
+
+```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
-  "fileName": "photo.jpg"
+   "imageUrl": "http://example.com/images/PRODUCT/2025/01/20/550e8400.webp",
+   "status": "PROCESSING"
 }
 ```
 
-#### POST /api/v1/images/async (비동기 방식, v2.0.1 신규)
+**Response (다중)**
 
-**단일 이미지 비동기 업로드**
-
-```http
-Content-Type: multipart/form-data
-
-Parameters:
-- file: MultipartFile (필수)
-- uploaderId: String (필수)
-- category: String (필수)
-
-Response:
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "fileName": "photo.jpg",
-  "status": "TEMP"
-}
-
-동작:
-1. TEMP 상태로 즉시 응답 반환
-2. 백그라운드에서 WebP 변환 처리
-3. 처리 완료 시 READY 상태로 전환
-4. 약 7배 빠른 처리량 (대량 업로드 시 유리)
-```
-
-#### POST /api/v1/images/batch
-
-**배치 이미지 업로드**
-
-```http
-Content-Type: multipart/form-data
-
-Parameters:
-- files: List<MultipartFile> (필수)
-- uploaderId: String (필수)
-- category: String (필수)
-
-Response:
+```json
 [
-  {
-    "imageFileName": "photo1.jpg",
-    "imageId": "550e8400-..."
-  },
-  ...
+   {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "imageUrl": "http://example.com/images/PRODUCT/2025/01/20/550e8400.webp",
+      "status": "PROCESSING"
+   },
+   {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "imageUrl": "http://example.com/images/PRODUCT/2025/01/20/550e8401.webp",
+      "status": "PROCESSING"
+   }
 ]
 ```
 
-### 이미지 확정
+**상태 코드**
 
-#### POST /api/v1/images/confirm/{referenceId}
+| 코드  | 설명                    |
+|-----|-----------------------|
+| 200 | 업로드 성공                |
+| 400 | 잘못된 요청 (확장자, 파일 크기 등) |
+| 500 | 서버 오류                 |
 
-**단일 이미지 확정**
+### 4.2 이미지 확정
 
-```http
-Query Parameters:
-- imageId: String (필수)
+#### 단일 이미지 확정
 
-동작:
-1. 단일 이미지 타입 (PROFILE):
-   - 기존 이미지 DELETED 처리
-   - 새 이미지 CONFIRMED 처리
-   - 직접 외부 이벤트 발행
-
-Response: 204 No Content
+```
+POST /api/v1/images/confirm/{referenceId}
 ```
 
-#### POST /api/v1/images/confirm
+**Query Parameters**
 
-**다중 이미지 배치 확정**
+| 파라미터    | 타입     | 필수 | 설명                         |
+|---------|--------|----|----------------------------|
+| imageId | String | Y  | 확정할 이미지 ID (빈 문자열 = 전체 삭제) |
 
-```http
-Content-Type: application/json
+**Path Variables**
 
-Request Body:
+| 파라미터        | 타입     | 필수 | 설명    |
+|-------------|--------|----|-------|
+| referenceId | String | Y  | 참조 ID |
+
+**동작:**
+
+1. **단일 이미지 타입 (PROFILE, CATEGORY):**
+   - 기존 이미지가 있으면 DELETED 처리
+   - 새 이미지 CONFIRMED 처리
+   - 즉시 Kafka 이벤트 발행
+
+2. **빈 문자열 imageId:**
+   - 해당 referenceId의 모든 이미지 삭제
+   - 삭제 이벤트 발행
+
+**Response**
+
+```
+200 OK (No Content)
+```
+
+#### 다중 이미지 확정 (배치)
+
+```
+POST /api/v1/images/confirm
+```
+
+**Request**
+
+```json
 {
   "imageIds": ["id1", "id2", "id3"],
   "referenceId": "ref-456"
 }
-
-동작:
-1. 다중 이미지 타입 (PRODUCT, POST):
-   - 모든 이미지 CONFIRMED 처리
-   - 도메인 이벤트 발행 (ImagesConfirmedEvent)
-   - ImageSequence 자동 생성 (순서 유지)
-   - 외부 이벤트 발행 (Kafka)
-
-Response: 204 No Content
 ```
 
-### Enums 조회
+| 필드          | 타입           | 필수 | 설명                            |
+|-------------|--------------|----|-------------------------------|
+| imageIds    | List<String> | Y  | 확정할 이미지 ID 리스트 (빈 배열 = 전체 삭제) |
+| referenceId | String       | Y  | 참조 ID                         |
 
-#### GET /api/v1/enums/extensions
+**동작:**
 
-**지원 확장자 조회**
+1. **다중 이미지 타입 (PRODUCT, POST):**
+   - 전달된 이미지들 CONFIRMED 처리
+   - 기존 이미지 중 목록에 없는 것은 DELETED 처리
+   - ImageSequence 자동 생성 (순서 유지)
+   - 도메인 이벤트 발행 (ImagesConfirmedEvent)
+   - 트랜잭션 커밋 후 Kafka 이벤트 발행
+
+2. **빈 배열 imageIds:**
+   - 해당 referenceId의 모든 이미지 삭제
+   - ImageSequence 삭제
+   - 빈 배열 이벤트 발행
+
+**Response**
+
+```
+200 OK (No Content)
+```
+
+### 4.3 Enums 조회
+
+#### 지원 확장자 조회
+
+```
+GET /api/v1/enums/extensions
+```
+
+**Response**
 
 ```json
 {
   "JPG": "JPEG Image",
   "PNG": "Portable Network Graphics",
   "WEBP": "WebP Image",
-  ...
+   "GIF": "Graphics Interchange Format",
+   "HEIC": "High Efficiency Image Container"
 }
 ```
 
-#### GET /api/v1/enums/referenceType
+#### 참조 타입 조회
 
-**참조 타입 조회**
+```
+GET /api/v1/enums/referenceType
+```
+
+**Response**
 
 ```json
 {
   "PRODUCT": "상품",
   "POST": "게시글",
   "PROFILE": "프로필",
-  ...
+   "BANNER": "배너",
+   "CATEGORY": "카테고리",
+   "USER_BACKGROUND": "사용자 배경"
 }
 ```
 
-### 헬스 체크
+### 4.4 헬스 체크
 
-#### GET /actuator/health
+#### Actuator 헬스 체크
+
+```
+GET /actuator/health
+```
+
+**Response**
 
 ```json
 {
@@ -540,221 +564,611 @@ Response: 204 No Content
 }
 ```
 
----
+#### 심플 헬스 체크
 
-## 기술 스택
+```
+GET /health
+```
 
-### Core
+**Response**
 
-- **Spring Boot**: 3.5.5
-- **Java**: 21 (Eclipse Temurin)
-- **Gradle**: 8.x
-
-### Database
-
-- **Production**: MariaDB
-- **Test**: H2 (in-memory)
-- **JPA**: Hibernate
-
-### Messaging
-
-- **Kafka**: spring-kafka
-- **ShedLock**: 5.14.0 (분산 락)
-
-### Image Processing
-
-- **Scrimage**: 4.0.32 (WebP 변환)
-- **libwebp7**: Native 라이브러리
-
-### Async Processing (v2.0.1)
-
-- **ThreadPoolTaskExecutor**: 비동기 Task Queue
-	- Core: 10, Max: 20, Queue: 500
-- **@Async**: Spring 비동기 처리
-
-### Monitoring
-
-- **Spring Boot Actuator**: 헬스 체크 및 메트릭
-- **Custom Health Indicators**: Kafka, FileSystem
-
-### Development
-
-- **Lombok**: 코드 간소화
-- **Slf4j**: 로깅
-
-### Testing
-
-- **JUnit 5**: 단위 테스트 프레임워크
-- **Mockito**: 5.2.0 (Static mocking 포함)
-- **Spring Boot Test**: 통합 테스트 지원
-- **MockMvc**: Controller 레이어 테스트
-- **AssertJ**: 유창한 assertion 라이브러리
-- **H2 Database**: 인메모리 테스트 데이터베이스
-- **TestEntityManager**: JPA 슬라이스 테스트
+```
+Server is up
+```
 
 ---
 
-## 테스트
+## 5. 이벤트 명세
 
-### 테스트 전략
+### 5.1 Kafka Topics
 
-이 프로젝트는 **포괄적인 단위 테스트**를 통해 코드 품질과 안정성을 보장합니다.
+| Topic                  | Producer     | Consumer        | 설명              |
+|------------------------|--------------|-----------------|-----------------|
+| product-image-changed  | Image Server | Product Server  | 상품 이미지 변경 이벤트   |
+| post-image-changed     | Image Server | Post Server     | 게시글 이미지 변경 이벤트  |
+| profile-image-changed  | Image Server | Profile Server  | 프로필 이미지 변경 이벤트  |
+| banner-image-changed   | Image Server | Banner Server   | 배너 이미지 변경 이벤트   |
+| category-image-changed | Image Server | Category Server | 카테고리 이미지 변경 이벤트 |
 
-#### 테스트 커버리지
+**Topic 명명 규칙:** `{reference-type-lowercase}-image-changed`
+
+### 5.2 이벤트 페이로드
+
+#### 단일 이미지 변경 (ImageChangeEvent)
+
+```json
+{
+   "eventId": "evt-uuid-1234",
+   "eventType": "IMAGE_CHANGED",
+   "timestamp": "2025-01-20T10:00:00Z",
+   "payload": {
+      "referenceId": "product-123",
+      "imageId": "550e8400-e29b-41d4-a716-446655440000",
+      "imageUrl": "http://example.com/images/PROFILE/2025/01/20/550e8400.webp"
+   }
+}
+```
+
+#### 다중 이미지 변경 (ImagesChangeEventWrapper)
+
+```json
+{
+   "eventId": "evt-uuid-2345",
+   "eventType": "IMAGES_CHANGED",
+   "timestamp": "2025-01-20T10:01:00Z",
+   "payload": {
+      "referenceId": "product-456",
+      "images": [
+         {
+            "imageId": "id-1",
+            "imageUrl": "http://example.com/images/PRODUCT/2025/01/20/id1.webp",
+            "referenceId": "product-456",
+            "seqNumber": 0
+         },
+         {
+            "imageId": "id-2",
+            "imageUrl": "http://example.com/images/PRODUCT/2025/01/20/id2.webp",
+            "referenceId": "product-456",
+            "seqNumber": 1
+         }
+      ]
+   }
+}
+```
+
+#### 이미지 전체 삭제 (빈 배열)
+
+```json
+{
+   "eventId": "evt-uuid-3456",
+   "eventType": "IMAGES_DELETED",
+   "timestamp": "2025-01-20T11:00:00Z",
+   "payload": {
+      "referenceId": "product-789",
+      "images": []
+   }
+}
+```
+
+---
+
+## 6. 비즈니스 규칙
+
+### 6.1 참조 타입별 규칙
+
+| 참조 타입           | 다중 허용 | 최대 개수 | 확정 방식      | 이벤트 타입            |
+|-----------------|-------|-------|------------|-------------------|
+| PRODUCT         | O     | 10    | 배치 (순서 관리) | ImagesChangeEvent |
+| POST            | O     | 20    | 배치 (순서 관리) | ImagesChangeEvent |
+| BANNER          | O     | 무제한   | 배치 (순서 관리) | ImagesChangeEvent |
+| PROFILE         | X     | 1     | 단일 (교체)    | ImageChangeEvent  |
+| CATEGORY        | X     | 1     | 단일 (교체)    | ImageChangeEvent  |
+| USER_BACKGROUND | X     | 1     | 단일 (교체)    | ImageChangeEvent  |
+
+### 6.2 이미지 상태 규칙
+
+| 상태        | 설명         | 확정 가능 | 전이 가능 상태               |
+|-----------|------------|-------|------------------------|
+| TEMP      | 비동기 업로드 직후 | X     | READY, FAILED, DELETED |
+| READY     | 변환 완료      | O     | CONFIRMED, DELETED     |
+| CONFIRMED | 확정 완료      | -     | DELETED                |
+| DELETED   | 삭제됨        | X     | -                      |
+| FAILED    | 변환 실패      | X     | (스케줄러에 의해 삭제)          |
+
+### 6.3 확정 규칙
+
+| 규칙                  | 설명                                   |
+|---------------------|--------------------------------------|
+| TEMP 상태 확정 시도       | `IMAGE_PROCESSING_IN_PROGRESS` 에러 반환 |
+| FAILED 상태 확정 시도     | `IMAGE_PROCESSING_FAILED` 에러 반환      |
+| 단일 타입에 다중 이미지 확정 시도 | `NOT_ALLOWED_MULTIPLE_IMAGES` 에러 반환  |
+| 최대 개수 초과 시          | `IMAGE_COUNT_EXCEEDED` 에러 반환         |
+
+### 6.4 WebP 변환 규칙
+
+| 규칙            | 설명                         |
+|---------------|----------------------------|
+| 변환 품질         | 80% (0.8f)                 |
+| 변환 실패 시 폴백    | 원본 포맷 그대로 저장               |
+| Rosetta 에러 처리 | 원본 저장 (M1 Mac 호환성)         |
+| 지원 입력 포맷      | JPG, PNG, GIF, BMP, HEIC 등 |
+
+### 6.5 파일 저장 규칙
+
+| 규칙       | 설명                                         |
+|----------|--------------------------------------------|
+| 저장 경로 패턴 | `/{CATEGORY}/{YYYY}/{MM}/{DD}/{uuid}.webp` |
+| 파일명      | UUID v4                                    |
+| 최대 파일 크기 | 10MB (단일), 100MB (전체 요청)                   |
+
+---
+
+## 7. 비동기 처리
+
+### 7.1 Task Queue 아키텍처
+
+```mermaid
+flowchart LR
+   subgraph Request
+      HTTP[HTTP Request]
+   end
+
+   subgraph Service
+      SAVE[ImageSaveService]
+   end
+
+   subgraph TaskQueue
+      EXEC[ThreadPoolTaskExecutor]
+      W1[Worker 1]
+      W2[Worker 2]
+      WN[Worker N]
+   end
+
+   subgraph Storage
+      FS[(File System)]
+      DB[(MariaDB)]
+   end
+
+   HTTP --> SAVE
+   SAVE -->|1 . 메타데이터 저장| DB
+   SAVE -->|2 . Task 등록| EXEC
+   SAVE -->|3 . 즉시 응답| HTTP
+   EXEC --> W1
+   EXEC --> W2
+   EXEC --> WN
+   W1 --> FS
+   W2 --> FS
+   WN --> FS
+   W1 -->|상태 변경| DB
+```
+
+### 7.2 ThreadPoolTaskExecutor 설정
+
+| 설정               | 값                | 설명                   |
+|------------------|------------------|----------------------|
+| corePoolSize     | 10               | 기본 워커 스레드 수          |
+| maxPoolSize      | 20               | 최대 워커 스레드 수          |
+| queueCapacity    | 500              | 대기 큐 용량              |
+| threadNamePrefix | `image-worker-`  | 스레드 이름 접두사           |
+| keepAliveSeconds | 60               | 유휴 스레드 유지 시간         |
+| rejectedPolicy   | CallerRunsPolicy | 큐 초과 시 호출 스레드가 직접 처리 |
+
+### 7.3 성능 비교
+
+| 항목    | 동기 방식    | 비동기 방식       |
+|-------|----------|--------------|
+| 응답 시간 | 변환 완료 후  | 즉시 (< 100ms) |
+| 처리량   | ~28개/초   | ~208개/초      |
+| 성능 향상 | -        | **약 7.5배**   |
+| 상태    | 즉시 READY | TEMP → READY |
+
+---
+
+## 8. 인덱스 설계
+
+### 8.1 images 테이블
+
+```sql
+-- 기본 키
+PRIMARY
+KEY
+   (image_id)
+
+-- 참조 ID로 이미지 조회
+CREATE INDEX idx_images_reference_id ON images (reference_id);
+
+-- 상태별 이미지 필터링
+CREATE INDEX idx_images_status ON images (status);
+
+-- 스케줄러용: 상태 + 생성일 복합 인덱스
+CREATE INDEX idx_images_status_created ON images (status, created_at);
+
+-- 업로더별 이미지 조회
+CREATE INDEX idx_images_uploader_id ON images (uploader_id);
+```
+
+### 8.2 image_sequence 테이블
+
+```sql
+-- 기본 키
+PRIMARY
+KEY
+   (id)
+
+-- 참조 ID + 순서로 조회 (가장 빈번)
+CREATE INDEX idx_reference_seq ON image_sequence (reference_id, seq_number);
+
+-- 이미지 ID로 조회
+CREATE INDEX idx_image_id ON image_sequence (image_id);
+
+-- 유니크 제약 (중복 방지)
+CREATE UNIQUE INDEX uk_reference_image ON image_sequence (reference_id, image_id);
+CREATE UNIQUE INDEX uk_reference_seq ON image_sequence (reference_id, seq_number);
+```
+
+### 8.3 status_history 테이블
+
+```sql
+-- 이미지별 이력 조회
+CREATE INDEX idx_history_image_id ON status_history (image_id);
+
+-- 변경 시간 기준 조회
+CREATE INDEX idx_history_updated_at ON status_history (updated_at);
+```
+
+---
+
+## 9. 에러 코드
+
+### 9.1 이미지 관련 에러
+
+| 코드                          | HTTP Status | 설명             |
+|-----------------------------|-------------|----------------|
+| IMAGE_NOT_FOUND             | 404         | 이미지를 찾을 수 없음   |
+| IMAGE_SAVE_FAILED           | 500         | 이미지 저장 실패      |
+| IMAGE_ALREADY_CONFIRMED     | 400         | 이미 확정된 이미지     |
+| IMAGE_COUNT_EXCEEDED        | 400         | 최대 이미지 개수 초과   |
+| NOT_ALLOWED_MULTIPLE_IMAGES | 400         | 다중 이미지 허용되지 않음 |
+
+### 9.2 비동기 처리 관련 에러
+
+| 코드                           | HTTP Status | 설명                  |
+|------------------------------|-------------|---------------------|
+| IMAGE_PROCESSING_IN_PROGRESS | 409         | 이미지 처리 중 (잠시 후 재시도) |
+| IMAGE_PROCESSING_FAILED      | 500         | 이미지 처리 실패 (재업로드 필요) |
+
+### 9.3 파일 관련 에러
+
+| 코드                       | HTTP Status | 설명           |
+|--------------------------|-------------|--------------|
+| INVALID_FILE_NAME        | 400         | 유효하지 않은 파일명  |
+| INVALID_FILE_EXTENSION   | 400         | 지원하지 않는 확장자  |
+| FILE_EXTENSION_NOT_FOUND | 400         | 확장자를 찾을 수 없음 |
+| IOException              | 500         | 파일 입출력 오류    |
+
+### 9.4 참조 타입 관련 에러
+
+| 코드                       | HTTP Status | 설명             |
+|--------------------------|-------------|----------------|
+| INVALID_REFERENCE        | 400         | 유효하지 않은 참조     |
+| REFERENCE_TYPE_NOT_FOUND | 400         | 참조 타입을 찾을 수 없음 |
+| INVALID_EXTENSION        | 400         | 유효하지 않은 확장자    |
+
+### 9.5 시퀀스 관련 에러
+
+| 코드                            | HTTP Status | 설명              |
+|-------------------------------|-------------|-----------------|
+| INVALID_IMAGE_SEQUENCE        | 400         | 유효하지 않은 이미지 순서  |
+| IMAGE_SEQUENCE_NOT_FOUND      | 404         | 이미지 순서를 찾을 수 없음 |
+| IMAGE_SEQUENCE_ALREADY_EXISTS | 400         | 이미지 순서가 이미 존재함  |
+
+---
+
+## 10. 환경 설정
+
+### 10.1 환경 변수
+
+```bash
+# Database
+DATABASE_HOST=localhost
+DATABASE_PORT=3306
+DATABASE_NAME=images
+DATABASE_USER_NAME=images
+DATABASE_PASSWORD=your_password
+
+# Redis (ShedLock용)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Kafka
+KAFKA_URL1=localhost:9092
+KAFKA_URL2=localhost:9093
+KAFKA_URL3=localhost:9094
+
+# Image Storage
+BASE_URL=http://localhost:9200/images/
+
+# Spring Profile
+SPRING_PROFILES_ACTIVE=prod
+```
+
+### 10.2 application-prod.yaml
+
+```yaml
+server:
+   port: 8080
+
+management:
+   endpoints:
+      web:
+         exposure:
+            include: health,info
+   endpoint:
+      health:
+         show-details: when-authorized
+         probes:
+            enabled: true
+
+spring:
+   kafka:
+      bootstrap-servers: ${KAFKA_URL1},${KAFKA_URL2},${KAFKA_URL3}
+      producer:
+         retries: 3
+         batch-size: 16384
+         buffer-memory: 33554432
+         key-serializer: org.apache.kafka.common.serialization.StringSerializer
+         value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+   datasource:
+      url: jdbc:mariadb://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}
+      username: ${DATABASE_USER_NAME}
+      password: ${DATABASE_PASSWORD}
+      driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+       ddl-auto: none
+    properties:
+       hibernate:
+          dialect: org.hibernate.dialect.MariaDBDialect
+
+   servlet:
+      multipart:
+         max-file-size: 10MB
+         max-request-size: 100MB
+
+images:
+  upload:
+    dir: /uploads
+  base-url: ${BASE_URL}
+```
+
+### 10.3 Docker 배포
+
+#### Dockerfile
+
+```dockerfile
+FROM eclipse-temurin:21-jre-jammy
+
+WORKDIR /app
+
+# 런타임에 필요한 네이티브 라이브러리 설치 (libwebp)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libwebp7 ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY build/libs/*.jar /app/app.jar
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+```
+
+#### 멀티 아키텍처 빌드
+
+```bash
+# buildx 사용
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t ddingsh9/image-server:latest \
+  --push .
+```
+
+### 10.4 Docker Compose
+
+```yaml
+version: '3.7'
+
+services:
+   nginx:
+      image: nginx:alpine
+      container_name: nginx-image
+      ports:
+         - "9200:80"
+      volumes:
+         - ./nginx/conf:/etc/nginx/conf.d:ro
+         - images-data:/usr/share/nginx/images:ro
+      depends_on:
+         - image-server-1
+         - image-server-2
+         - image-server-3
+      networks:
+         - image-network
+
+   image-server-1:
+      image: ddingsh9/image-server:latest
+      container_name: image-server-1
+      env_file:
+         - .env.prod
+    volumes:
+      - images-data:/uploads
+    networks:
+      - image-network
+      - infra-network
+    healthcheck:
+       test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+       interval: 15s
+       timeout: 5s
+      retries: 3
+
+   image-server-2:
+      image: ddingsh9/image-server:latest
+      container_name: image-server-2
+      env_file:
+         - .env.prod
+    volumes:
+       - images-data:/uploads
+      networks:
+         - image-network
+         - infra-network
+      healthcheck:
+         test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+         interval: 15s
+         timeout: 5s
+         retries: 3
+
+   image-server-3:
+      image: ddingsh9/image-server:latest
+      container_name: image-server-3
+      env_file:
+         - .env.prod
+      volumes:
+         - images-data:/uploads
+      networks:
+         - image-network
+         - infra-network
+      healthcheck:
+         test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+         interval: 15s
+         timeout: 5s
+         retries: 3
+
+networks:
+  image-network:
+     driver: bridge
+  infra-network:
+    external: true
+
+volumes:
+   images-data:
+      driver: local
+```
+
+### 10.5 Nginx 설정
+
+```nginx
+upstream image_servers {
+    server image-server-1:8080;
+    server image-server-2:8080;
+    server image-server-3:8080;
+}
+
+server {
+    listen 80;
+    server_name localhost;
+
+    client_max_body_size 100M;
+
+    location /api/ {
+        proxy_pass http://image_servers;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /images/ {
+        alias /usr/share/nginx/images/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /health {
+        proxy_pass http://image_servers/health;
+        access_log off;
+    }
+
+    location /actuator/health {
+        proxy_pass http://image_servers/actuator/health;
+        access_log off;
+    }
+}
+```
+
+---
+
+## 11. 스케줄링
+
+### 11.1 스케줄 작업
+
+| 작업          | 크론 표현식         | 설명                             |
+|-------------|----------------|--------------------------------|
+| 실패 이미지 정리   | `0 0 3 * * *`  | 24시간 이상 경과 FAILED 이미지 삭제       |
+| 오래된 TEMP 정리 | `0 0 10 * * *` | 24시간 이상 경과 TEMP 이미지 삭제         |
+| 캐시 새로고침     | `0 30 0 * * *` | Extension, ReferenceType 캐시 갱신 |
+
+### 11.2 FailedImageCleanupScheduler
+
+```java
+
+@Scheduled(cron = "0 0 3 * * *")  // 매일 새벽 3시
+@Transactional
+public void cleanupFailedImages() {
+   // 24시간 이상 경과한 FAILED 이미지 삭제
+   LocalDateTime threshold = LocalDateTime.now().minusDays(1);
+   List<Image> failedImages = imageRepository
+           .findByStatusAndCreatedAtBefore(ImageStatus.FAILED, threshold);
+
+   for (Image image : failedImages) {
+      // 파일 삭제
+      imageStorage.delete(image.getStorageObject().getStorageLocation());
+      // DB 삭제
+      imageRepository.delete(image);
+   }
+}
+
+@Scheduled(cron = "0 0 10 * * *")  // 매일 오전 10시
+@Transactional
+public void cleanupStaleTempImages() {
+   // 24시간 이상 TEMP 상태인 이미지 삭제
+   LocalDateTime threshold = LocalDateTime.now().minusDays(1);
+   List<Image> staleImages = imageRepository
+           .findByStatusAndCreatedAtBefore(ImageStatus.TEMP, threshold);
+
+   for (Image image : staleImages) {
+      imageStorage.delete(image.getStorageObject().getStorageLocation());
+      imageRepository.delete(image);
+   }
+}
+```
+
+---
+
+## 12. 테스트
+
+### 12.1 테스트 커버리지
 
 ```
 총 테스트 수: 203+
 성공률: 100%
 ```
 
-### 테스트 구조
+### 12.2 테스트 구조
 
-#### 1. Validator Layer (100+ 테스트)
+| 레이어         | 테스트 수 | 파일 위치                       |
+|-------------|-------|-----------------------------|
+| Validator   | 100+  | `util/validator/*Test.java` |
+| Entity      | 25    | `entity/*Test.java`         |
+| DTO         | 10    | `dto/*Test.java`            |
+| Controller  | 33    | `controller/*Test.java`     |
+| Service     | 20    | `service/*Test.java`        |
+| Repository  | 9     | `repository/*Test.java`     |
+| Performance | 6     | `performance/*Test.java`    |
 
-**파일**: `src/test/java/com/teambind/image_server/util/validator/`
-
-- `CategoryValidatorTest`: 카테고리 유효성 검증
-- `ExtensionValidatorTest`: 파일 확장자 검증
-- `ReferenceTypeValidatorTest`: 참조 타입 검증
-- `RequestDtoValidatorTest`: 요청 DTO 검증
-
-**실행**:
-```bash
-./gradlew test --tests "*validator*"
-```
-
-#### 2. Entity Layer (25 테스트)
-
-**파일**: `src/test/java/com/teambind/image_server/entity/`
-
-- `ImageTest`: Image 엔티티
-- `ReferenceTypeTest`: ReferenceType 엔티티
-
-**실행**:
-```bash
-./gradlew test --tests "*entity*"
-```
-
-#### 3. DTO Layer (10 테스트)
-
-**파일**: `src/test/java/com/teambind/image_server/dto/`
-
-- 요청/응답 DTO 빌더 패턴 테스트
-- 유효성 검증 어노테이션 테스트
-
-**실행**:
-```bash
-./gradlew test --tests "*dto*"
-```
-
-#### 4. Controller Layer (33 테스트)
-
-**파일**: `src/test/java/com/teambind/image_server/controller/`
-
-**ImageSaveControllerTest** (22 테스트):
-
-- 단일/다중 이미지 업로드
-- 필수 파라미터 검증
-- MockMvc 기반 API 테스트
-
-**ImageConfirmControllerTest** (11 테스트):
-
-- 단일/다중 이미지 확정
-- 엣지 케이스 처리
-
-**실행**:
-```bash
-./gradlew test --tests "*controller*"
-```
-
-#### 5. Service Layer (20 테스트)
-
-**파일**: `src/test/java/com/teambind/image_server/service/`
-
-**ImageSaveServiceTest** (10 테스트):
-- WebP 변환 성공/실패 시나리오
-- Rosetta 에러 폴백 메커니즘
-
-**ImageConfirmServiceTest** (10 테스트):
-- 신규 이미지 확정
-- 기존 이미지 교체
-- MONO/MULTI 타입 처리
-
-**실행**:
-```bash
-./gradlew test --tests "*service*"
-```
-
-#### 6. Repository Layer (9 테스트)
-
-**파일**: `src/test/java/com/teambind/image_server/repository/`
-
-**ImageRepositoryTest**:
-- JPA 쿼리 메서드 테스트
-- 복합 키 조회
-- 배치 처리
-
-**실행**:
-```bash
-./gradlew test --tests "*repository*"
-```
-
-#### 7. Performance Tests (6 테스트, v2.0.1 신규)
-
-**파일**: `src/test/java/com/teambind/image_server/performance/`
-
-**ImageProcessingPerformanceTest**:
-
-- 동기 vs 비동기 성능 비교 (100개, 200개)
-- 동시성 테스트 (50개 동시 요청)
-- 부하 테스트
-
-**실행**:
-
-```bash
-./gradlew test --tests "*performance*"
-```
-
-### 테스트 환경 설정
-
-#### application-test.yaml
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:h2:mem:testdb;MODE=MYSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
-
-  jpa:
-    show-sql: true
-    hibernate:
-      ddl-auto: create-drop
-
-images:
-  upload:
-    dir: ${java.io.tmpdir}/test-images
-  base-url: http://localhost:8080/images/
-```
-
-### 테스트 픽스처
-
-**TestFixtureFactory**: 테스트 데이터 생성 팩토리
-
-```java
-// 엔티티 생성
-Image image = TestFixtureFactory.createTempImage("image-123");
-Image readyImage = TestFixtureFactory.createReadyImage("image-456");
-ReferenceType profile = TestFixtureFactory.createProfileReferenceType();
-Extension jpg = TestFixtureFactory.createJpgExtension();
-
-// MockMultipartFile 생성
-MultipartFile file = TestFixtureFactory.createValidImageFile();
-List<MultipartFile> files = TestFixtureFactory.createValidImageFiles(3);
-```
-
-### 테스트 실행
+### 12.3 테스트 실행
 
 ```bash
 # 전체 테스트 실행
@@ -772,414 +1186,199 @@ List<MultipartFile> files = TestFixtureFactory.createValidImageFiles(3);
 ./gradlew clean build
 ```
 
-### 테스트 베스트 프랙티스
-
-1. **Given-When-Then 패턴**: 모든 테스트는 명확한 구조를 따름
-2. **DisplayName 사용**: 한글로 테스트 의도 명확히 표현
-3. **Mock 분리**: `@Mock`, `@InjectMocks`로 의존성 분리
-4. **Static Mocking**: ImageUtil.toWebp() 등 정적 메서드 모킹
-5. **테스트 격리**: `@BeforeEach`로 초기화, 각 테스트 독립 실행
-6. **AssertJ 활용**: 유창한 assertion으로 가독성 향상
-
 ---
 
-## 성능
-
-### 성능 테스트 결과 (v2.0.1)
-
-상세한 성능 분석은 [docs/ASYNC_PERFORMANCE_COMPARISON.md](docs/ASYNC_PERFORMANCE_COMPARISON.md) 참조
-
-#### 1. 동기 방식 부하 테스트 (200개 이미지)
-
-- **총 처리 시간**: 7.211초
-- **성공**: 200개 (100%)
-- **처리량**: 27.74개/초
-
-#### 2. 비동기 방식 부하 테스트 (200개 이미지)
-
-- **작업 제출 시간**: 0.961초
-- **성공**: 200개 (100%)
-- **제출 처리량**: 208.12개/초
-- **성능 향상**: **약 7.5배**
-
-#### 3. 동시성 테스트 비교 (50개 동시 요청)
-
-| 방식  | 처리 시간  | 처리량       | 성공률  |
-|-----|--------|-----------|------|
-| 동기  | 0.252초 | 198.41개/초 | 100% |
-| 비동기 | 0.166초 | 301.20개/초 | 100% |
-
-### 권장 사용 시나리오
-
-#### 동기 방식 사용 시
-
-- 소량 이미지 업로드 (1~10개)
-- 즉시 변환 결과 필요
-- 순차 처리 보장 필요
-
-#### 비동기 방식 사용 시
-
-- 대량 이미지 업로드 (50개 이상)
-- 빠른 응답 속도 필요
-- 백그라운드 처리 허용 가능
-- 배치 작업
-
-### 성능 최적화 기법
-
-1. **ThreadPoolTaskExecutor 설정**
-	- Core: 10, Max: 20, Queue: 500
-	- 스레드 풀 고갈 방지
-
-2. **데이터베이스 최적화**
-	- 인메모리 캐시 (Extension, ReferenceType)
-	- preloadedImage 재사용 패턴
-	- 배치 처리 지원
-
-3. **이미지 처리 최적화**
-	- WebP 변환 (80% 품질)
-	- 폴백 메커니즘
-	- 비동기 변환
-
----
-
-## 설정 및 실행
-
-### 로컬 실행 (dev 프로파일)
-
-```bash
-# 1. 환경 변수 설정
-export SPRING_PROFILES_ACTIVE=dev
-
-# 2. 데이터베이스 준비
-mysql -u root -p < src/main/resources/sql/schema-mariadb.sql
-mysql -u root -p < src/main/resources/sql/data-mariadb.sql
-
-# 3. 실행
-./gradlew bootRun
-```
-
-### 설정 파일
-
-#### application.yaml
-
-```yaml
-spring:
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
-
-  task:
-    execution:
-      pool:
-        core-size: 10
-        max-size: 20
-        queue-capacity: 500
-```
-
-#### application-dev.yaml
-
-```yaml
-images:
-  upload:
-    dir: /path/to/uploads
-    base-url: http://localhost:9200/images/
-
-spring:
-  datasource:
-    url: jdbc:mariadb://localhost:3306/images
-    username: root
-    password: pass123#
-
-  kafka:
-    bootstrap-servers: localhost:9092
-```
-
-#### application-prod.yaml
-
-```yaml
-images:
-  upload:
-    dir: /uploads
-    base-url: ${BASE_URL}
-
-spring:
-  datasource:
-    url: jdbc:mariadb://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}
-    username: ${DATABASE_USER_NAME}
-    password: ${DATABASE_PASSWORD}
-
-  kafka:
-    bootstrap-servers:
-      - ${KAFKA_URL1}
-      - ${KAFKA_URL2}
-      - ${KAFKA_URL3}
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      show-details: always
-```
-
----
-
-## 배포
-
-### Docker Compose
-
-#### 아키텍처
-
-```
-┌─────────────────┐
-│  Nginx:9200     │ (로드 밸런서)
-└────────┬────────┘
-         │
-    ┌────┴────┬────────┐
-    │         │        │
-┌───▼──┐  ┌───▼──┐  ┌──▼───┐
-│Server│  │Server│  │Server│
-│  1   │  │  2   │  │  3   │
-└──┬───┘  └──┬───┘  └──┬───┘
-   └─────────┼─────────┘
-             │
-    ┌────────▼────────┐
-    │   MariaDB       │
-    │   Redis         │
-    │   Kafka Cluster │
-    └─────────────────┘
-```
-
-#### docker-compose.yml
-
-```yaml
-services:
-  image-server-1:
-    image: ddingsh9/image-server:2.0.1
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - DATABASE_HOST=mariadb
-      - KAFKA_URL1=kafka1:9091
-      # ...
-    volumes:
-      - images-data:/uploads
-    networks:
-      - image-network
-      - infra-network
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "9200:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - images-data:/usr/share/nginx/html/images
-    depends_on:
-      - image-server-1
-      - image-server-2
-      - image-server-3
-
-volumes:
-  images-data:
-
-networks:
-  image-network:
-  infra-network:
-    external: true
-```
-
-#### Dockerfile
-
-```dockerfile
-FROM eclipse-temurin:21-jre-jammy
-
-RUN apt-get update && \
-    apt-get install -y libwebp7 ca-certificates curl && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY build/libs/*.jar /app/app.jar
-
-EXPOSE 8080
-
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
-
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
-```
-
-### 배포 단계
-
-```bash
-# 1. 빌드
-./gradlew clean build
-
-# 2. Docker 이미지 생성
-docker build -t ddingsh9/image-server:2.0.1 .
-
-# 3. 푸시
-docker push ddingsh9/image-server:2.0.1
-
-# 4. 배포
-docker-compose up -d
-
-# 5. 헬스 체크
-curl http://localhost:9200/actuator/health
-```
-
----
-
-## 프로젝트 구조
+## 13. 프로젝트 구조
 
 ```
 src/main/java/com/teambind/image_server/
+├── config/
+│   ├── AsyncConfig.java                # 비동기 Task Queue 설정
+│   ├── InitialSetup.java               # 인메모리 캐시 초기화
+│   ├── KafkaRetryConfig.java           # Kafka 재시도 설정
+│   └── SchedulingConfig.java           # 스케줄러 설정
+│
 ├── controller/
-│   ├── ImageSaveController.java
-│   ├── ImageConfirmController.java
-│   └── enumsController.java
+│   ├── ImageSaveController.java        # 이미지 업로드 API
+│   ├── ImageConfirmController.java     # 이미지 확정 API
+│   ├── EnumsController.java            # Enum 조회 API
+│   └── HealthController.java           # 헬스 체크 API
 │
 ├── service/
-│   ├── ImageSaveService.java           # 동기/비동기 처리
-│   ├── ImageConfirmService.java
-│   ├── ImageSequenceService.java
-│   └── ScheduleService.java
+│   ├── ImageSaveService.java           # 동기/비동기 저장 로직
+│   ├── ImageConfirmService.java        # 확정 비즈니스 로직
+│   ├── ImageSequenceService.java       # 순서 관리 로직
+│   ├── ImageProcessingTaskQueue.java   # Task Queue 관리
+│   └── ScheduleService.java            # 스케줄 관련 로직
 │
-├── config/
-│   ├── AsyncConfig.java                # v2.0.1 신규
-│   └── DataInitializer.java
-│
-├── scheduler/
-│   ├── TempImageCleanupScheduler.java
-│   └── FailedImageCleanupScheduler.java # v2.0.1 신규
+├── entity/
+│   ├── Image.java                      # 이미지 엔티티
+│   ├── ImageSequence.java              # 순서 엔티티
+│   ├── ReferenceType.java              # 참조 타입 엔티티
+│   ├── Extension.java                  # 확장자 엔티티
+│   ├── StorageObject.java              # 스토리지 정보 엔티티
+│   └── StatusHistory.java              # 상태 이력 엔티티
 │
 ├── repository/
 │   ├── ImageRepository.java
 │   ├── ImageSequenceRepository.java
-│   └── ...
-│
-├── entity/
-│   ├── Image.java
-│   ├── ImageSequence.java
-│   ├── ReferenceType.java
-│   ├── Extension.java
-│   └── StorageObject.java
+│   ├── ReferenceTypeRepository.java
+│   ├── ExtensionRepository.java
+│   ├── StorageObjectRepository.java
+│   └── StatusHistoryRepository.java
 │
 ├── event/
 │   ├── events/
-│   │   ├── ImagesConfirmedEvent.java
-│   │   ├── ImageChangeEvent.java
-│   │   └── SequentialImageChangeEvent.java
+│   │   ├── ImagesConfirmedEvent.java       # 도메인 이벤트
+│   │   ├── ImageChangeEvent.java           # 단일 변경 이벤트
+│   │   ├── SequentialImageChangeEvent.java # 순차 이벤트
+│   │   └── ImagesChangeEventWrapper.java   # 다중 변경 래퍼
 │   ├── handler/
-│   │   └── ImageSequenceEventHandler.java
-│   └── publish/
-│       └── ImageChangeEventPublisher.java # AFTER_COMMIT
+│   │   └── ImageSequenceEventHandler.java  # 이벤트 핸들러
+│   ├── publish/
+│   │   └── ImageChangeEventPublisher.java  # Kafka 발행
+│   └── EventPublisher.java                 # 이벤트 발행 인터페이스
 │
-└── util/
-    ├── InitialSetup.java
-    ├── convertor/ImageUtil.java
-    ├── store/LocalImageStorage.java
-    ├── statuschanger/StatusChanger.java
-    └── validator/
-
-src/test/java/com/teambind/image_server/
-├── performance/                         # v2.0.1 신규
-│   └── ImageProcessingPerformanceTest.java
-├── controller/
-├── service/
-├── repository/
-├── entity/
+├── scheduler/
+│   └── FailedImageCleanupScheduler.java    # 실패 이미지 정리
+│
+├── task/
+│   └── ImageProcessingTask.java            # 비동기 처리 태스크
+│
+├── enums/
+│   └── ImageStatus.java                    # 상태 Enum
+│
+├── exception/
+│   ├── ErrorCode.java                      # 에러 코드 정의
+│   ├── CustomException.java                # 커스텀 예외
+│   ├── ErrorResponse.java                  # 에러 응답 DTO
+│   └── GlobalExceptionHandler.java         # 전역 예외 핸들러
+│
 ├── dto/
-└── util/
-
-docs/
-└── ASYNC_PERFORMANCE_COMPARISON.md      # v2.0.1 신규
+│   └── request/
+│       ├── ImageUploadRequest.java         # 업로드 요청 DTO
+│       ├── ImageConfirmRequest.java        # 단일 확정 요청
+│       └── ImageBatchConfirmRequest.java   # 배치 확정 요청
+│
+├── util/
+│   ├── convertor/
+│   │   └── ImageUtil.java                  # WebP 변환 유틸
+│   ├── helper/
+│   │   ├── UrlHelper.java                  # URL 생성 헬퍼
+│   │   └── ExtensionParser.java            # 확장자 파싱
+│   ├── store/
+│   │   └── LocalImageStorage.java          # 로컬 파일 저장소
+│   └── validator/
+│       ├── ReferenceTypeValidator.java     # 참조 타입 검증
+│       ├── ExtensionValidator.java         # 확장자 검증
+│       └── ImageFileValidator.java         # 파일 검증
+│
+├── health/
+│   ├── KafkaHealthIndicator.java           # Kafka 헬스 체크
+│   └── FileSystemHealthIndicator.java      # 파일시스템 헬스 체크
+│
+└── ImageServerApplication.java             # 메인 애플리케이션
 ```
 
 ---
 
-## 주요 개선사항
+## 14. 참고 사항
 
-### v2.0.1 (2025-10-24)
+### 14.1 도메인 이벤트 패턴
 
-#### 1. 비동기 Task Queue 구현
+Image Server는 도메인 이벤트 패턴을 사용하여 이미지 확정 후 처리를 수행합니다.
 
-- ThreadPoolTaskExecutor 기반 이미지 처리
-- `saveImageAsync()` API 추가
-- TEMP → READY 상태 전환
-- 약 7배 성능 향상 (208 vs 28 개/초)
+```java
+// 1. 이미지 확정 서비스에서 도메인 이벤트 발행
+applicationEventPublisher.publishEvent(
+    new ImagesConfirmedEvent(referenceId, confirmedImages, referenceTypeCode)
+);
 
-#### 2. 이미지 처리 상태 관리 개선
+// 2. 이벤트 핸들러에서 트랜잭션 커밋 후 처리
+@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+public void handleImagesConfirmed(ImagesConfirmedEvent event) {
+   // ImageSequence 재생성
+   List<ImageSequence> sequences = imageSequenceService.recreateSequences(...);
+   // Kafka 이벤트 발행
+   eventPublisher.imagesChangeEvent(sequences);
+}
+```
 
-- ImageStatus.READY 추가 (변환 완료 상태)
-- ImageStatus.FAILED 추가 (처리 실패 상태)
-- 처리 단계별 상태 전환: TEMP → READY → CONFIRMED
+**장점:**
 
-#### 3. Kafka 이벤트 발행 개선
+- DB 트랜잭션과 Kafka 발행 분리
+- 트랜잭션 실패 시 Kafka 이벤트 발행 방지
+- Kafka 발행 실패가 DB 트랜잭션에 영향 없음
 
-- `@TransactionalEventListener(AFTER_COMMIT)` 적용
-- 트랜잭션 커밋 후 이벤트 발행으로 데이터 정합성 보장
-- 재시도 로직 추가 (최대 3회, 지수 백오프)
+### 14.2 인메모리 캐시 전략
 
-#### 4. 실패 이미지 자동 정리
+서버 시작 시 자주 조회되는 데이터를 인메모리에 캐싱합니다.
 
-- FailedImageCleanupScheduler 추가
-- 매일 새벽 3시, 오전 9시 실행
-- FAILED 7일 이상 + TEMP 24시간 이상 삭제
+```java
+// InitialSetup.java
+public static final Map<String, ReferenceType> ALL_REFERENCE_TYPE_MAP = new ConcurrentHashMap<>();
+public static final Map<String, Extension> EXTENSION_MAP = new ConcurrentHashMap<>();
 
-#### 5. 성능 테스트 구현
+@PostConstruct
+public void init() {
+   loadData();
+}
 
-- 동기 vs 비동기 성능 비교 테스트
-- 동시성 테스트 (50개)
-- 부하 테스트 (200개)
-- 성능 비교 문서 작성
+@Scheduled(cron = "0 30 0 * * *")  // 매일 00:30 갱신
+public void loadData() {
+   loadExtension();
+   loadReferenceType();
+}
+```
 
-#### 6. Spring Boot Actuator 추가
+### 14.3 파일 저장 경로 규칙
 
-- 헬스 체크 엔드포인트
-- Kafka, FileSystem Health Indicator
-- 운영 모니터링 강화
+```
+/uploads/{CATEGORY}/{YYYY}/{MM}/{DD}/{uuid}.webp
 
-### v2.0.0 (2025-10-22)
+예시:
+/uploads/PRODUCT/2025/01/20/550e8400-e29b-41d4-a716-446655440000.webp
+/uploads/PROFILE/2025/01/20/660f9500-e29b-41d4-a716-556766550111.webp
+```
 
-#### 1. 도메인 이벤트 패턴 적용
-- ImagesConfirmedEvent 도입
-- ImageSequenceEventHandler 자동 처리
-- 트랜잭션 안전성 보장
+### 14.4 비동기 처리 흐름
 
-#### 2. ImageSequence 구조 개선
-- 복합키 → Auto Increment 단일키
-- reference_id 컬럼 추가
-
-#### 3. 엔티티 키 변경
-
-- ReferenceType: id → code
-- Extension: extension_id → code
-
-#### 4. 성능 최적화
-
-- DB 조회 최적화 (50% 감소)
-- preloadedImage 재사용 패턴
-
-#### 5. 포괄적인 테스트 구현
-
-- 총 203+ 테스트
-- 100% 성공률
+```
+1. HTTP 요청 수신
+2. 메타데이터 DB 저장 (status: TEMP)
+3. 즉시 응답 반환 (id, imageUrl, status: PROCESSING)
+4. Task Queue에 처리 작업 등록
+5. 워커 스레드가 WebP 변환 수행
+6. StorageObject 저장
+7. 상태 변경 (TEMP → READY)
+8. 클라이언트가 확정 API 호출 가능
+```
 
 ---
 
-## 문서
+## 15. 성능 최적화
 
-### 관련 문서
+### 15.1 최적화 기법
 
-- [성능 비교 문서](docs/ASYNC_PERFORMANCE_COMPARISON.md)
+| 기법                 | 적용 위치               | 효과              |
+|--------------------|---------------------|-----------------|
+| 비동기 Task Queue     | ImageSaveService    | 응답 시간 7배 단축     |
+| 인메모리 캐시            | InitialSetup        | DB 조회 50% 감소    |
+| preloadedImage 재사용 | ImageConfirmService | 중복 조회 방지        |
+| 배치 처리              | 다중 이미지 확정           | 트랜잭션 최적화        |
+| WebP 변환            | ImageUtil           | 파일 크기 60-80% 감소 |
 
-### 메타 정보
-- **작성일**: 2025-10-22
-- **최종 업데이트**: 2025-10-24
-- **버전**: 2.0.1
-- **저자**: DDING
+### 15.2 권장 사용 시나리오
+
+| 시나리오           | 권장 방식 | 이유                  |
+|----------------|-------|---------------------|
+| 소량 업로드 (1~10개) | 비동기   | 빠른 응답               |
+| 대량 업로드 (50개+)  | 비동기   | 스레드 풀 활용, 7배 성능 향상  |
+| 즉시 변환 필요       | 동기    | 변환 완료 후 READY 상태 보장 |
+| 배치 작업          | 비동기   | 백그라운드 처리로 효율성 극대화   |
+
+---
+
+**버전**: 2.0.1
+**최종 업데이트**: 2025-01-20
+**팀**: TeamBind Development Team

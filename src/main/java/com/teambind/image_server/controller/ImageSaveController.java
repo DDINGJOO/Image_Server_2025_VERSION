@@ -12,8 +12,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/images")
@@ -30,17 +28,17 @@ public class ImageSaveController {
 	 * @return 업로드된 이미지 정보 (URL 등)
 	 */
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public ResponseEntity<Map<String, String>> saveImage(@Valid @ModelAttribute ImageUploadRequest request) {
-		Map<String, String> result;
-		
+	public ResponseEntity<Object> saveImage(@Valid @ModelAttribute ImageUploadRequest request) {
+		Object result;
+
 		if (request.isSingleUpload()) {
-			result = imageSaveService.saveImage(
+			result = imageSaveService.saveImageAsync(
 					request.getFile(),
 					request.getUploaderId(),
 					request.getCategory()
 			);
 		} else {
-			result = imageSaveService.saveImages(
+			result = imageSaveService.saveImagesAsync(
 					request.getFiles(),
 					request.getUploaderId(),
 					request.getCategory()
